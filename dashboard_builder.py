@@ -1567,8 +1567,9 @@ window.addEventListener("load",function(){{render("conv")}});
 path = os.path.join(OUT, 'recharge_dashboard.html')
 with open(path, 'w', encoding='utf-8') as f:
     f.write(html)
+# Also save as index.html for GitHub Pages
+index_path = os.path.join(OUT, 'index.html')
+with open(index_path, 'w', encoding='utf-8') as f:
+    f.write(html)
 print(f"\nSaved: {path} ({os.path.getsize(path)//1024} KB)")
 print("DONE!")
-
-# Store html in module-level variable for Flask to access
-_last_html = html
