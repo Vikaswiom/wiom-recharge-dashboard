@@ -1467,15 +1467,12 @@ function refreshDashboard(btn){{
 <b class="r">{n_never_converted}</b> never converted (trial expired).
 <span class="badge badge-b">{n_trial_active} still in trial (excluded from rate)</span></div>
 <div class="stat-row">
-<div class="stat-card"><div class="sv" style="color:#27AE60">{n_converted}</div><div class="sl">Converted Users</div></div>
+<div class="stat-card"><div class="sv" style="color:#4ECDC4">{total_users}</div><div class="sl">Total Installed</div></div>
+<div class="stat-card"><div class="sv" style="color:#27AE60">{n_converted}</div><div class="sl">Converted to Paid</div></div>
 <div class="stat-card"><div class="sv" style="color:#E74C3C">{n_never_converted}</div><div class="sl">Never Converted</div></div>
 <div class="stat-card"><div class="sv" style="color:#FFEAA7">{n_trial_active}</div><div class="sl">Still in Trial</div></div>
-<div class="stat-card"><div class="sv" style="color:#27AE60">{n_before_trial}</div><div class="sl">Converted Before Trial End</div></div>
-<div class="stat-card"><div class="sv" style="color:#4ECDC4">{n_after_trial}</div><div class="sl">Converted After Trial End</div></div>
+<div class="stat-card"><div class="sv" style="color:#BB8FCE">{n_evaluable}</div><div class="sl">Evaluable (Trial Expired)</div></div>
 </div>
-<div class="ins" style="border-color:#FFEAA7"><b style="color:#FFEAA7">Post-Trial Expiry TAT (After-Expiry Converters Only):</b>
-Median: <b class="y">{median_tat_h:.1f} hours</b> | P80: <b>{p80_tat_h:.1f} hours</b> | P90: <b>{p90_tat_h:.1f} hours</b>
-({n_after_trial} users who converted after trial expired)</div>
 <div class="box"><div id="c-c2"></div></div>
 <div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise Installs &amp; Conversion (Newest First)</h4>
 <p style="color:#888;font-size:11px;margin-bottom:8px">Conversion rate excludes users still in trial period</p>
