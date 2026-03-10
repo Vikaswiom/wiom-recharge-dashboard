@@ -1286,9 +1286,6 @@ c29 = json.dumps({"data":[{"type":"pie","labels":_cbp_labels,"values":_cbp_vals,
 ALL_CHARTS = json.dumps({
     "c2":json.loads(c2),
     "c4":json.loads(c4),"c5":json.loads(c5),
-    "c6":json.loads(c6),"c7":json.loads(c7),
-    "c8":json.loads(c8),"c9":json.loads(c9),"c10":json.loads(c10),
-    "c11":json.loads(c11),"c12":json.loads(c12),
     "c14":json.loads(c14),"c15":json.loads(c15),
     "c16":json.loads(c16),"c17":json.loads(c17),"c18":json.loads(c18),
     "c19":json.loads(c19),"c20":json.loads(c20),"c21":json.loads(c21),"c22":json.loads(c22),
@@ -1470,15 +1467,13 @@ function refreshDashboard(btn){{
 <div class="tabs" id="tb">
 <div class="tab active" data-t="conv">1. Conversion</div>
 <div class="tab" data-t="firstplan">2. First Plan</div>
-<div class="tab" data-t="retention">3. Retention</div>
-<div class="tab" data-t="gaps">4. Gap Analysis</div>
-<div class="tab" data-t="segments">5. Segments</div>
-<div class="tab" data-t="insights">6. Insights</div>
-<div class="tab" data-t="daily">7. Daily Metrics</div>
-<div class="tab" data-t="cohort">8. Plan Cohort</div>
-<div class="tab" data-t="trialfunnel">9. Trial Funnel</div>
-<div class="tab" data-t="nonconv">10. Non-Converted</div>
-<div class="tab" data-t="rday">11. R-Day Report</div>
+<div class="tab" data-t="segments">3. Segments</div>
+<div class="tab" data-t="insights">4. Insights</div>
+<div class="tab" data-t="daily">5. Daily Metrics</div>
+<div class="tab" data-t="cohort">6. Plan Cohort</div>
+<div class="tab" data-t="trialfunnel">7. Trial Funnel</div>
+<div class="tab" data-t="nonconv">8. Non-Converted</div>
+<div class="tab" data-t="rday">9. R-Day Report</div>
 </div>
 
 <div class="tc active" id="t-conv">
@@ -1507,31 +1502,8 @@ Based on {n_with_first_plan} converted users (all plan durations included).</div
 <table><tr>{month_plan_hdr}</tr>{month_plan_tbl}</table></div>
 </div>
 
-<div class="tc" id="t-retention">
-<div class="ins"><b>Paid Recharge Retention (Eligibility-Based):</b> Only expired-plan users evaluated.
-Paid R1 to R2: <b class="g">{r1_to_r2_rate:.0f}%</b> ({r1_elig} eligible, {r1_ret} retained).
-<span class="badge badge-b">{r1_act} active (plan running)</span></div>
-<div class="g2"><div class="box"><div id="c-c6"></div></div><div class="box"><div id="c-c7"></div></div></div>
-<div class="box"><table><tr><th>Step</th><th>Total</th><th>Eligible</th><th>Retained</th><th>Rate</th><th>Active</th><th>Churned</th></tr>{ret_tbl}</table></div>
-</div>
-
-<div class="tc" id="t-gaps">
-<div class="ins"><b>Plan-Wise Gap Analysis:</b> Overall median gap: <b>{median_gap_h:.1f} hours</b>.
-Gap = time from plan expiry to next recharge, grouped by plan duration.</div>
-<div class="stat-row">
-<div class="stat-card"><div class="sv" style="color:#E74C3C">{plan_gap_stats[1]['median_h']}h</div><div class="sl">1-Day Median Gap</div></div>
-<div class="stat-card"><div class="sv" style="color:#9B59B6">{plan_gap_stats[2]['median_h']}h</div><div class="sl">2-Day Median Gap</div></div>
-<div class="stat-card"><div class="sv" style="color:#F39C12">{plan_gap_stats[7]['median_h']}h</div><div class="sl">7-Day Median Gap</div></div>
-<div class="stat-card"><div class="sv" style="color:#FFEAA7">{plan_gap_stats[14]['median_h']}h</div><div class="sl">14-Day Median Gap</div></div>
-<div class="stat-card"><div class="sv" style="color:#4ECDC4">{plan_gap_stats[28]['median_h']}h</div><div class="sl">28-Day Median Gap</div></div>
-</div>
-<div class="g2"><div class="box"><div id="c-c8"></div></div><div class="box"><div id="c-c9"></div></div></div>
-<div class="box"><table><tr><th>Plan</th><th>Gaps</th><th>Median</th><th>P80</th><th>P90</th><th>Mean</th></tr>{plan_gap_tbl}</table></div>
-</div>
-
 <div class="tc" id="t-segments">
 <div class="ins"><b>User Segments:</b> <b class="r">{n_churned}</b> churned (plan expired, not recharged till date).</div>
-<div class="g2"><div class="box"><div id="c-c11"></div></div><div class="box"><div id="c-c12"></div></div></div>
 <div class="box"><table><tr><th>Segment</th><th>Users</th><th>%</th><th>Avg Duration</th><th>Med Gap</th><th>Avg Lifetime</th><th>Avg LTV</th><th>Churn%</th></tr>{seg_tbl}</table></div>
 <h4 style="color:#E74C3C;margin:16px 0 8px;font-size:15px">Churned Users Distribution ({n_churned} users)</h4>
 <div class="ins" style="border-color:#E74C3C"><b style="color:#E74C3C">Churned = Plan expired & not recharged till date.</b> Distribution by days since last plan expired:</div>
@@ -1623,9 +1595,7 @@ var R={{}};
 var M={{
   conv:[["c-c2","c2"]],
   firstplan:[["c-c4","c4"],["c-c5","c5"]],
-  retention:[["c-c6","c6"],["c-c7","c7"]],
-  gaps:[["c-c8","c8"],["c-c9","c9"]],
-  segments:[["c-c11","c11"],["c-c12","c12"],["c-c28","c28"],["c-c29","c29"]],
+  segments:[["c-c28","c28"],["c-c29","c29"]],
   daily:[["c-c14","c14"],["c-c15","c15"]],
   cohort:[["c-c16","c16"],["c-c17","c17"],["c-c18","c18"]],
   trialfunnel:[["c-c19","c19"],["c-c20","c20"],["c-c21","c21"],["c-c22","c22"]],
