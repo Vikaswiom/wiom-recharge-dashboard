@@ -1286,11 +1286,9 @@ c29 = json.dumps({"data":[{"type":"pie","labels":_cbp_labels,"values":_cbp_vals,
 ALL_CHARTS = json.dumps({
     "c2":json.loads(c2),
     "c4":json.loads(c4),"c5":json.loads(c5),
-    "c14":json.loads(c14),"c15":json.loads(c15),
     "c16":json.loads(c16),"c17":json.loads(c17),"c18":json.loads(c18),
     "c19":json.loads(c19),"c20":json.loads(c20),"c21":json.loads(c21),"c22":json.loads(c22),
-    "c23":json.loads(c23),
-    "c24":json.loads(c24),"c25":json.loads(c25),"c26":json.loads(c26),
+    "c26":json.loads(c26),
     "c27":json.loads(c27),"c28":json.loads(c28),"c29":json.loads(c29),
 })
 
@@ -1468,12 +1466,12 @@ function refreshDashboard(btn){{
 <div class="tab active" data-t="conv">1. Conversion</div>
 <div class="tab" data-t="firstplan">2. First Plan</div>
 <div class="tab" data-t="segments">3. Segments</div>
-<div class="tab" data-t="insights">4. Insights</div>
-<div class="tab" data-t="daily">5. Daily Metrics</div>
-<div class="tab" data-t="cohort">6. Plan Cohort</div>
-<div class="tab" data-t="trialfunnel">7. Trial Funnel</div>
-<div class="tab" data-t="nonconv">8. Non-Converted</div>
-<div class="tab" data-t="rday">9. R-Day Report</div>
+<div class="tab" data-t="daily">4. Daily Metrics</div>
+<div class="tab" data-t="cohort">5. Plan Cohort</div>
+<div class="tab" data-t="trialfunnel">6. Trial Funnel</div>
+<div class="tab" data-t="nonconv">7. Non-Converted</div>
+<div class="tab" data-t="rday">8. R-Day Report</div>
+<div class="tab" data-t="insights">9. Insights</div>
 </div>
 
 <div class="tc active" id="t-conv">
@@ -1511,17 +1509,8 @@ Based on {n_with_first_plan} converted users (all plan durations included).</div
 <div class="box"><table><tr><th>Days Since Expired</th><th>Users</th><th>%</th><th>Avg Plan Duration</th></tr>{churn_dist_tbl}</table></div>
 </div>
 
-<div class="tc" id="t-insights">
-<div class="ins"><b>Data-Driven Insights</b></div>
-<div class="box" style="padding:20px"><h3 style="color:#4ECDC4;margin-bottom:14px;font-size:15px">Top Insights</h3>{insights_html}</div>
-<div class="box" style="padding:20px"><h3 style="color:#E74C3C;margin-bottom:14px;font-size:15px">Churn Risks</h3>{churn_html}</div>
-<div class="box" style="padding:20px"><h3 style="color:#27AE60;margin-bottom:14px;font-size:15px">Recommendations</h3>{rec_html}</div>
-<div class="box" style="padding:20px"><h3 style="color:#FFEAA7;margin-bottom:14px;font-size:15px">Experiments</h3>{exp_html}</div>
-</div>
-
 <div class="tc" id="t-daily">
 <div class="ins"><b>Daily Metrics:</b> Peak active: <b class="g">{peak_active_val}</b> on {peak_active_date}.</div>
-<div class="g2"><div class="box"><div id="c-c14"></div></div><div class="box"><div id="c-c15"></div></div></div>
 <div class="g2">
 <div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Daily Installs & Active</h4>
 <table><tr><th>Date</th><th>Installs</th><th>Cum</th><th>Conv</th><th>Cum Conv</th><th>Active Paid</th></tr>{daily_tbl1}</table></div>
@@ -1534,7 +1523,6 @@ Based on {n_with_first_plan} converted users (all plan durations included).</div
 <span class="badge badge-g">Same: {stick_pct:.0f}%</span>
 <span class="badge badge-b">Upgrades: {up_pct_plan:.0f}%</span>
 <span class="badge badge-r">Downgrades: {down_pct_plan:.0f}%</span> ({tot_tr} transitions)</div>
-<div class="box"><div id="c-c16"></div></div>
 <div class="g2"><div class="box"><div id="c-c17"></div></div><div class="box"><div id="c-c18"></div></div></div>
 <div class="g2">
 <div class="box"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Transition Matrix</h4><table><tr>{trans_hdr}</tr>{trans_tbl}</table></div>
@@ -1548,7 +1536,9 @@ Based on {n_with_first_plan} converted users (all plan durations included).</div
 <p style="color:#ccc;font-size:12px;line-height:1.6">
 <b style="color:#9B59B6">2+ steps:</b> {total_2plus_all} users across {len(path_counter_2)} unique paths<br>
 <b style="color:#FFEAA7">3+ steps:</b> {total_3plus_all} users across {len(path_counter)} unique paths</p></div>
-</div></div>
+</div>
+<div class="box"><div id="c-c16"></div></div>
+</div>
 
 <div class="tc" id="t-trialfunnel">
 <div class="ins"><b>Trial Funnel:</b> <b class="g">{n_converted}</b>/{n_evaluable} evaluable converted (<b class="g">{conv_rate:.1f}%</b>).
@@ -1564,10 +1554,8 @@ Before trial: <b>{conv_before_count}</b>, After: <b>{conv_after_count}</b>.
 <div class="tc" id="t-nonconv">
 <div class="ins"><b>Non-Converted:</b> <b class="r">{n_never_converted}</b> trial-expired, never purchased.
 <span class="badge badge-b">{n_trial_active} still in trial</span></div>
-<div class="g2">
 <div class="box"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">Non-Converted Segments (by days since trial expired)</h4>
 <table><tr><th>Segment</th><th>Users</th><th>%</th></tr>{nc_seg_tbl}</table></div>
-<div class="box"><div id="c-c23"></div></div></div>
 <h4 style="color:#4ECDC4;margin:16px 0 8px;font-size:15px">Plan-Wise Purchase Frequency</h4>
 <div class="ins" style="border-color:#FFEAA7"><b style="color:#FFEAA7">How many users purchased each plan type X+ times in their lifetime (converted users only):</b></div>
 <div class="box"><div id="c-c27"></div></div>
@@ -1577,14 +1565,21 @@ Before trial: <b>{conv_before_count}</b>, After: <b>{conv_after_count}</b>.
 <div class="tc" id="t-rday">
 <div class="ins"><b>R-Day Report:</b> <b class="r">{total_rday}</b> non-converted with expired trial.
 Peak: <b class="r">R{peak_rday}</b> ({peak_rday_count}). Bucket: <b class="y">{highest_risk_bucket}</b> ({highest_risk_count}).</div>
-<div class="g2"><div class="box"><div id="c-c24"></div></div><div class="box"><div id="c-c26"></div></div></div>
-<div class="box"><div id="c-c25"></div></div>
+<div class="box"><div id="c-c26"></div></div>
 <div class="g2">
 <div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">R-Day Detail</h4>
 <table><tr><th>R-Day</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{rday_detail_tbl}</table></div>
 <div class="box" style="padding:16px"><h4 style="color:#4ECDC4;margin-bottom:12px;font-size:13px">Insights</h4>{ti_html}
 <h4 style="color:#FF6B6B;margin:16px 0 12px;font-size:13px">Interventions</h4>{iv_html}</div>
 </div></div>
+
+<div class="tc" id="t-insights">
+<div class="ins"><b>Data-Driven Insights</b></div>
+<div class="box" style="padding:20px"><h3 style="color:#4ECDC4;margin-bottom:14px;font-size:15px">Top Insights</h3>{insights_html}</div>
+<div class="box" style="padding:20px"><h3 style="color:#E74C3C;margin-bottom:14px;font-size:15px">Churn Risks</h3>{churn_html}</div>
+<div class="box" style="padding:20px"><h3 style="color:#27AE60;margin-bottom:14px;font-size:15px">Recommendations</h3>{rec_html}</div>
+<div class="box" style="padding:20px"><h3 style="color:#FFEAA7;margin-bottom:14px;font-size:15px">Experiments</h3>{exp_html}</div>
+</div>
 
 <footer>WIOM Recharge Lifecycle | {total_users} users | Generated {TODAY_STR}</footer>
 
@@ -1596,11 +1591,10 @@ var M={{
   conv:[["c-c2","c2"]],
   firstplan:[["c-c4","c4"],["c-c5","c5"]],
   segments:[["c-c28","c28"],["c-c29","c29"]],
-  daily:[["c-c14","c14"],["c-c15","c15"]],
   cohort:[["c-c16","c16"],["c-c17","c17"],["c-c18","c18"]],
   trialfunnel:[["c-c19","c19"],["c-c20","c20"],["c-c21","c21"],["c-c22","c22"]],
-  nonconv:[["c-c23","c23"],["c-c27","c27"]],
-  rday:[["c-c24","c24"],["c-c25","c25"],["c-c26","c26"]]
+  nonconv:[["c-c27","c27"]],
+  rday:[["c-c26","c26"]]
 }};
 function render(t){{if(R[t])return;var items=M[t];if(!items)return;items.forEach(function(p){{var el=document.getElementById(p[0]);if(el&&C[p[1]])Plotly.newPlot(p[0],C[p[1]].data,C[p[1]].layout,cfg)}});R[t]=true}}
 function sw(t){{document.querySelectorAll(".tc").forEach(function(e){{e.classList.remove("active")}});document.querySelectorAll(".tab").forEach(function(e){{e.classList.remove("active")}});document.getElementById("t-"+t).classList.add("active");document.querySelector('[data-t="'+t+'"]').classList.add("active");setTimeout(function(){{render(t)}},50)}}
