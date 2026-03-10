@@ -139,7 +139,9 @@ def safe_int(s, default=0):
     try: return int(float(s))
     except (ValueError, TypeError): return default
 
-TODAY = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+NOW = datetime.now()
+NOW_STR = NOW.strftime('%b %d, %Y %H:%M')
+TODAY = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
 TODAY_STR = TODAY.strftime('%b %d, %Y')
 TRIAL_DURATION = 2
 
@@ -1385,8 +1387,8 @@ footer{{text-align:center;padding:24px;color:#333;font-size:11px;border-top:1px 
 <div><h1>WIOM Recharge Lifecycle Analytics</h1>
 <p>{total_users} users | {n_converted} converted, {n_never_converted} never converted, {n_trial_active} trial active | {len(paid_rows)} paid recharge records</p></div>
 <div style="text-align:right">
-<div style="font-size:11px;color:#4ECDC4;margin-bottom:4px">Last Updated: {TODAY.strftime('%b %d, %Y %H:%M')} IST</div>
-<a href="https://github.com/Vikaswiom/wiom-recharge-dashboard/actions/workflows/build-dashboard.yml" target="_blank"
+<div style="font-size:11px;color:#4ECDC4;margin-bottom:4px">Last Updated: {NOW_STR} IST</div>
+<a href="/refresh"
 style="background:linear-gradient(135deg,#4ECDC4,#27AE60);color:#0a0a1a;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer">Refresh Data</a>
 </div></div>
 
