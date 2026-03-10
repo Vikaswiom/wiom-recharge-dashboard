@@ -1395,8 +1395,12 @@ function refreshDashboard(btn){{
   btn.disabled=true;
   btn.textContent='Refreshing...';
   btn.style.opacity='0.7';
-  document.getElementById('update-time').innerHTML='<span style="color:#FF6B6B">Refreshing...</span> Data auto-updates every 15 min';
-  setTimeout(function(){{ location.reload(); }},3000);
+  document.getElementById('update-time').innerHTML='<span style="color:#FF6B6B">Connecting to Metabase... please wait ~45s</span>';
+  fetch('/refresh').then(function(){{
+    setTimeout(function(){{ location.reload(); }},45000);
+  }}).catch(function(){{
+    setTimeout(function(){{ location.reload(); }},45000);
+  }});
 }}
 </script>
 </div></div>
