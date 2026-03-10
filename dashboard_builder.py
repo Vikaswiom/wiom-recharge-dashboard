@@ -179,10 +179,10 @@ trial_only_uids = set(uid for uid, pt in user_paid_type.items()
                       if pt.strip().lower() == 'no' or 'no paid' in pt.lower())
 all_uids = converted_uids | trial_only_uids
 
-# Paid rows: standard plan durations only (1, 2, 7, 14, 28)
-paid_rows = [r for r in raw_rows if r['plan_duration'] in (1, 2, 7, 14, 28)]
+# Paid rows: all plan durations
+paid_rows = [r for r in raw_rows if r['plan_duration'] > 0]
 print(f"Trial-only users: {len(trial_only_uids)}")
-print(f"Converted users: {len(converted_uids)} ({len(paid_rows)} paid rows, plans 1/2/7/14/28d)")
+print(f"Converted users: {len(converted_uids)} ({len(paid_rows)} paid rows, all plan durations)")
 
 # =====================================================================
 # STEP 1: USER-LEVEL AGGREGATION
@@ -453,49 +453,60 @@ print("2. FIRST PLAN DURATION ANALYSIS")
 print("="*70)
 
 def plan_cat(dur):
-    if dur == 1: return '1-Day'
-    elif dur == 2: return '2-Day'
-    elif dur == 7: return '7-Day'
-    elif dur == 14: return '14-Day'
-    elif dur == 28: return '28-Day'
-    else: return '28-Day'
+    return f'{int(dur)}-Day'
 
 plan_colors_map = {'1-Day': '#E74C3C', '2-Day': '#9B59B6', '7-Day': '#F39C12', '14-Day': '#FFEAA7', '28-Day': '#4ECDC4'}
 _plan_order_list = ['1-Day', '2-Day', '7-Day', '14-Day', '28-Day']
 
-fpd = [u['first_paid_dur'] for u in std_plan_users_list if u['first_paid_dur'] > 0]
-fpd_buckets = OrderedDict()
-fpd_buckets['1 day'] = sum(1 for d in fpd if d == 1)
-fpd_buckets['2 days'] = sum(1 for d in fpd if d == 2)
-fpd_buckets['7 days'] = sum(1 for d in fpd if d == 7)
-fpd_buckets['14 days'] = sum(1 for d in fpd if d == 14)
-fpd_buckets['28 days'] = sum(1 for d in fpd if d == 28)
+# First paid plan duration - ALL durations (not just standard)
+all_first_paid_durs = [u['first_paid_dur'] for u in converted_users_list if u['first_paid_dur'] > 0]
+fpd_counter = Counter(all_first_paid_durs)
+fpd_sorted = sorted(fpd_counter.items(), key=lambda x: x[0])  # sort by duration
+fpd_labels = [f"{d}-Day" for d, _ in fpd_sorted]
+fpd_values = [c for _, c in fpd_sorted]
 
-n_std = len(std_plan_users_list)
-print(f"\nFirst Paid Plan Duration ({n_std} users with standard plans):")
-for bucket, cnt in fpd_buckets.items():
-    pct = cnt * 100 / max(1, n_std)
-    print(f"  {bucket:<15s}: {cnt:>5d} ({pct:>5.1f}%)")
+n_with_first_plan = len(all_first_paid_durs)
+print(f"\nFirst Paid Plan Duration ({n_with_first_plan} converted users):")
+for dur, cnt in fpd_sorted:
+    pct = cnt * 100 / max(1, n_with_first_plan)
+    print(f"  {dur}-Day: {cnt} ({pct:.1f}%)")
 
-pct_28d = fpd_buckets.get('28 days', 0) * 100 / max(1, n_std)
-pct_1d = fpd_buckets.get('1 day', 0) * 100 / max(1, n_std)
+pct_28d = fpd_counter.get(28, 0) * 100 / max(1, n_with_first_plan)
+pct_1d = fpd_counter.get(1, 0) * 100 / max(1, n_with_first_plan)
+n_std = n_with_first_plan  # for backward compat
 
-# Cross: t2p by first plan duration
-cross = defaultdict(list)
-cross_cats = ['1d', '2d', '7d', '14d', '28d']
-for u in std_plan_users_list:
-    if u['trial_to_paid'] is not None:
-        d = u['first_paid_dur']
-        cat = '1d' if d == 1 else '2d' if d == 2 else '7d' if d == 7 else '14d' if d == 14 else '28d'
-        cross[cat].append(u['trial_to_paid'])
-cross_data = {}
-print(f"\nMedian Install-to-Paid by First Plan:")
-for cat in cross_cats:
-    if cat in cross:
-        arr = np.array(cross[cat])
-        med_h = round(float(np.median(arr)) * 24, 1)
-        print(f"  {cat:<8s}: median {med_h:.1f} hours, n={len(arr)}")
-        cross_data[cat] = {'median_h': med_h, 'n': len(arr)}
+# Month-wise first plan distribution (all durations)
+month_plan_data = OrderedDict()
+for u in converted_users_list:
+    if u['install_time'] and u['first_paid_dur'] > 0:
+        mk = u['install_time'].strftime('%Y-%m')
+        if mk not in month_plan_data:
+            month_plan_data[mk] = Counter()
+        month_plan_data[mk][u['first_paid_dur']] += 1
+
+# Sort newest first
+month_plan_data = OrderedDict(sorted(month_plan_data.items(), reverse=True))
+
+# All unique durations across all months (sorted)
+all_plan_durs_sorted = sorted(set(d for mc in month_plan_data.values() for d in mc.keys()))
+
+# Month-wise table
+month_plan_tbl = ""
+for mk, dur_counter in month_plan_data.items():
+    month_label = datetime.strptime(mk, '%Y-%m').strftime('%b %Y')
+    total_m = sum(dur_counter.values())
+    cells = ""
+    for dur in all_plan_durs_sorted:
+        cnt = dur_counter.get(dur, 0)
+        pct = cnt * 100 / max(1, total_m)
+        cells += f"<td>{cnt} <small>({pct:.0f}%)</small></td>"
+    month_plan_tbl += f"<tr><td><b>{month_label}</b></td><td>{total_m}</td>{cells}</tr>"
+
+print(f"\nMonth-wise plan distribution ({len(month_plan_data)} months):")
+for mk, dur_counter in month_plan_data.items():
+    print(f"  {mk}: {dict(sorted(dur_counter.items()))}")
+
+month_plan_hdr = "<th>Month</th><th>Total</th>" + "".join(f"<th>{d}-Day</th>" for d in all_plan_durs_sorted)
 
 # =====================================================================
 # SECTION 3: RETENTION CURVE (Eligibility-Based, Paid Recharges)
@@ -1047,18 +1058,26 @@ c3 = json.dumps({"data":[{"type":"pie","labels":["Before Trial Expiry","After Tr
     "marker":{"colors":["#27AE60","#4ECDC4","#E74C3C"],"line":{"color":"#0f0f23","width":2}},"textinfo":"label+value+percent","textfont":{"size":11,"color":"white"},"hole":0.4}],
     "layout":{"title":{"text":"Conversion Timing vs Trial Expiry","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},"height":420}})
 
-# 4. First plan pie
-fd_l = list(fpd_buckets.keys()); fd_v = list(fpd_buckets.values())
-c4 = json.dumps({"data":[{"type":"pie","labels":fd_l,"values":fd_v,"marker":{"colors":["#E74C3C","#9B59B6","#F39C12","#FFEAA7","#4ECDC4"],"line":{"color":"#0f0f23","width":2}},
-    "textinfo":"label+value+percent","textfont":{"size":11,"color":"white"},"hole":0.4}],
-    "layout":{"title":{"text":"First Paid Plan Duration","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},"height":420}})
+# 4. First plan bar (all durations)
+_fpd_pcts = [round(v*100/max(1,n_with_first_plan),1) for v in fpd_values]
+c4 = json.dumps({"data":[{"type":"bar","x":fpd_labels,"y":fpd_values,
+    "marker":{"color":"#4ECDC4","line":{"color":"#0f0f23","width":1}},
+    "text":[f"{v} ({p}%)" for v,p in zip(fpd_values,_fpd_pcts)],"textposition":"outside","textfont":{"color":"white","size":11}}],
+    "layout":{"title":{"text":"First Paid Plan Duration (All Users)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
+    "xaxis":{"title":"Plan Duration","tickfont":{"color":"#ccc"},"categoryorder":"array","categoryarray":fpd_labels},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420}})
 
-# 5. T2P by plan (bar, hours)
-cr_m = [cross_data.get(c,{}).get('median_h',0) for c in cross_cats]; cr_n = [cross_data.get(c,{}).get('n',0) for c in cross_cats]
-c5 = json.dumps({"data":[{"type":"bar","x":cross_cats,"y":cr_m,"marker":{"color":["#E74C3C","#9B59B6","#F39C12","#FFEAA7","#4ECDC4"]},
-    "text":[f"{m}h (n={n})" for m,n in zip(cr_m,cr_n)],"textposition":"outside","textfont":{"color":"white","size":11}}],
-    "layout":{"title":{"text":"Median Install-to-Paid by Plan (Hours)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Plan Duration","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Median Hours","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420}})
+# 5. Month-wise plan distribution (grouped bar)
+_month_labels_plan = [datetime.strptime(mk, '%Y-%m').strftime('%b %Y') for mk in month_plan_data.keys()]
+_plan_bar_colors = ['#E74C3C','#9B59B6','#F39C12','#FFEAA7','#4ECDC4','#27AE60','#85C1E9','#DDA0DD','#FF6B6B','#3498DB']
+c5_traces = []
+for i, dur in enumerate(all_plan_durs_sorted):
+    vals = [month_plan_data[mk].get(dur, 0) for mk in month_plan_data.keys()]
+    c5_traces.append({"type":"bar","name":f"{dur}-Day","x":_month_labels_plan,"y":vals,
+        "marker":{"color":_plan_bar_colors[i % len(_plan_bar_colors)]}})
+c5 = json.dumps({"data":c5_traces,
+    "layout":{"title":{"text":"Month-Wise First Plan Distribution","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
+    "barmode":"group","xaxis":{"tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},
+    "legend":{"font":{"color":"#ccc"}},"height":480}})
 
 # 6. Retention curve
 ret_x = [n for n in retention if retention[n]['rate'] is not None]
@@ -1481,8 +1500,11 @@ function refreshDashboard(btn){{
 
 <div class="tc" id="t-firstplan">
 <div class="ins"><b>First Paid Plan:</b> <b class="g">{pct_28d:.0f}%</b> choose 28-day. <b class="r">{pct_1d:.0f}%</b> start with 1-day.
-Based on {n_std} users with standard plans (1/2/7/14/28 day).</div>
-<div class="g2"><div class="box"><div id="c-c4"></div></div><div class="box"><div id="c-c5"></div></div></div>
+Based on {n_with_first_plan} converted users (all plan durations included).</div>
+<div class="box"><div id="c-c4"></div></div>
+<div class="box"><div id="c-c5"></div></div>
+<div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise First Plan Distribution (Newest First)</h4>
+<table><tr>{month_plan_hdr}</tr>{month_plan_tbl}</table></div>
 </div>
 
 <div class="tc" id="t-retention">
