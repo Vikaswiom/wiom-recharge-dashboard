@@ -1471,7 +1471,6 @@ function refreshDashboard(btn){{
 <div class="tab" data-t="trialfunnel">6. Trial Funnel</div>
 <div class="tab" data-t="nonconv">7. Non-Converted</div>
 <div class="tab" data-t="rday">8. R-Day Report</div>
-<div class="tab" data-t="insights">9. Insights</div>
 </div>
 
 <div class="tc active" id="t-conv">
@@ -1489,6 +1488,15 @@ function refreshDashboard(btn){{
 <div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise Installs &amp; Conversion (Newest First)</h4>
 <p style="color:#888;font-size:11px;margin-bottom:8px">Conversion rate excludes users still in trial period</p>
 <table><tr><th>Month</th><th>Installs</th><th>Converted</th><th>Never Converted</th><th>In Trial</th><th>Evaluable</th><th>Conversion Rate</th></tr>{month_tbl}</table></div>
+<div class="box" style="padding:16px;border-left:3px solid #4ECDC4">
+<h4 style="color:#4ECDC4;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+<b style="color:#27AE60">Conversion Rate</b> = Out of all users whose free trial has ended, how many bought a paid plan.<br>
+<b style="color:#FFEAA7">Still in Trial</b> users are excluded because they haven't had a chance to convert yet.<br>
+<b style="color:#E74C3C">Never Converted</b> = Trial expired but user never purchased any plan.<br>
+The bar chart shows <b>how quickly</b> users convert after installing — most convert within 48 hours.<br>
+<b>Tip:</b> Send a push notification on the day trial expires — this is the highest conversion window.
+</p></div>
 </div>
 
 <div class="tc" id="t-firstplan">
@@ -1498,6 +1506,15 @@ Based on {n_with_first_plan} converted users (all plan durations included).</div
 <div class="box"><div id="c-c5"></div></div>
 <div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise First Plan Distribution (Newest First)</h4>
 <table><tr>{month_plan_hdr}</tr>{month_plan_tbl}</table></div>
+<div class="box" style="padding:16px;border-left:3px solid #F39C12">
+<h4 style="color:#F39C12;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+This shows <b>which plan duration users pick first</b> when they convert from free trial to paid.<br>
+<b style="color:#4ECDC4">28-Day plan</b> is the most popular ({pct_28d:.0f}%) — users prefer longer plans for better value.<br>
+<b style="color:#E74C3C">1-Day plan</b> users ({pct_1d:.0f}%) are likely testing before committing — they may need a nudge to upgrade.<br>
+The month-wise chart shows if plan preferences are changing over time.<br>
+<b>Tip:</b> Consider offering a discounted 7-day plan to 1-day users to encourage longer commitment.
+</p></div>
 </div>
 
 <div class="tc" id="t-segments">
@@ -1507,6 +1524,15 @@ Based on {n_with_first_plan} converted users (all plan durations included).</div
 <div class="ins" style="border-color:#E74C3C"><b style="color:#E74C3C">Churned = Plan expired & not recharged till date.</b> Distribution by days since last plan expired:</div>
 <div class="g2"><div class="box"><div id="c-c28"></div></div><div class="box"><div id="c-c29"></div></div></div>
 <div class="box"><table><tr><th>Days Since Expired</th><th>Users</th><th>%</th><th>Avg Plan Duration</th></tr>{churn_dist_tbl}</table></div>
+<div class="box" style="padding:16px;border-left:3px solid #E74C3C">
+<h4 style="color:#E74C3C;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+<b>Segments</b> group users by how many times they recharged (e.g., one-time buyer, regular, power user).<br>
+<b style="color:#E74C3C">Churned</b> = Users whose last paid plan has expired and they haven't recharged yet.<br>
+<b>Churn%</b> in the table shows what % of each segment has stopped recharging.<br>
+The "Days Since Expired" table shows how long ago churned users' plans expired — <b>recent churns (0-3 days)</b> are the easiest to win back.<br>
+<b>Tip:</b> Target users whose plan expired 1-3 days ago with a "Welcome back" offer — they're most likely to return.
+</p></div>
 </div>
 
 <div class="tc" id="t-daily">
@@ -1516,7 +1542,17 @@ Based on {n_with_first_plan} converted users (all plan durations included).</div
 <table><tr><th>Date</th><th>Installs</th><th>Cum</th><th>Conv</th><th>Cum Conv</th><th>Active Paid</th></tr>{daily_tbl1}</table></div>
 <div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">Expired & Recharged</h4>
 <table><tr><th>Date</th><th>Expired</th><th>Recharged</th><th>Rate</th></tr>{daily_tbl2}</table></div>
-</div></div>
+</div>
+<div class="box" style="padding:16px;border-left:3px solid #85C1E9">
+<h4 style="color:#85C1E9;margin-bottom:10px;font-size:13px">How to read these tables</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+<b>Left table:</b> How many users installed each day, how many converted to paid, and how many are currently on an active paid plan.<br>
+<b>Cum</b> = Running total (cumulative). <b>Active Paid</b> = Users with a running paid plan on that date.<br>
+<b>Right table:</b> How many paid plans expired each day, and how many of those users recharged.<br>
+<b style="color:#27AE60">Rate</b> = Recharged / Expired — higher is better. <span style="color:#27AE60">Green (70%+)</span> = healthy, <span style="color:#F39C12">Yellow (40-70%)</span> = needs attention, <span style="color:#E74C3C">Red (&lt;40%)</span> = users are leaving.<br>
+<b>Tip:</b> If you see a red day, check if there was a service issue or if a specific plan type expired in bulk.
+</p></div>
+</div>
 
 <div class="tc" id="t-cohort">
 <div class="ins"><b>Plan Cohort:</b>
@@ -1538,6 +1574,16 @@ Based on {n_with_first_plan} converted users (all plan durations included).</div
 <b style="color:#FFEAA7">3+ steps:</b> {total_3plus_all} users across {len(path_counter)} unique paths</p></div>
 </div>
 <div class="box"><div id="c-c16"></div></div>
+<div class="box" style="padding:16px;border-left:3px solid #9B59B6">
+<h4 style="color:#9B59B6;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+This tracks <b>how users change their plan</b> from one recharge to the next.<br>
+<b style="color:#27AE60">Same</b> = User picked the same plan again. <b style="color:#4ECDC4">Upgrade</b> = Moved to a longer plan. <b style="color:#E74C3C">Downgrade</b> = Moved to a shorter plan.<br>
+<b>Transition Matrix:</b> Read row-wise — e.g., "28-Day → 28-Day: 80%" means 80% of 28-day users recharged with 28-day again.<br>
+<b>Journey Paths:</b> Shows the most common plan sequences (e.g., 28-Day → 28-Day → 28-Day).<br>
+<b>Flow Chart (Sankey):</b> Visual of how users move between plans — thicker lines = more users taking that path.<br>
+<b>Tip:</b> If many users downgrade from 28-day to 1-day, investigate if they're facing service issues or affordability concerns.
+</p></div>
 </div>
 
 <div class="tc" id="t-trialfunnel">
@@ -1549,7 +1595,17 @@ Before trial: <b>{conv_before_count}</b>, After: <b>{conv_after_count}</b>.
 <div class="g2">
 <div class="box"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Funnel</h4><table><tr><th>Stage</th><th>Users</th><th>%</th></tr>{trial_funnel_tbl}</table></div>
 <div class="box"><h4 style="color:#FFEAA7;margin-bottom:8px;font-size:13px">Post-Trial Timing</h4><table><tr><th>Timing</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{conv_timing_tbl}</table></div>
-</div></div>
+</div>
+<div class="box" style="padding:16px;border-left:3px solid #27AE60">
+<h4 style="color:#27AE60;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+The <b>Trial Funnel</b> shows the user journey: Install → Free Trial → Trial Expires → Paid Plan (or drop off).<br>
+<b>Before trial</b> = Users who bought a paid plan even before their free trial ended — these are high-intent users.<br>
+<b>After trial</b> = Users who waited for trial to expire, then purchased — most common behavior.<br>
+<b>Post-Trial Timing</b> shows exactly when users convert after trial ends — e.g., "Day 0" means same day as trial expiry.<br>
+<b>Tip:</b> Day 0 is the golden window. A strong push notification on trial expiry day can significantly boost conversions.
+</p></div>
+</div>
 
 <div class="tc" id="t-nonconv">
 <div class="ins"><b>Non-Converted:</b> <b class="r">{n_never_converted}</b> trial-expired, never purchased.
@@ -1560,6 +1616,15 @@ Before trial: <b>{conv_before_count}</b>, After: <b>{conv_after_count}</b>.
 <div class="ins" style="border-color:#FFEAA7"><b style="color:#FFEAA7">How many users purchased each plan type X+ times in their lifetime (converted users only):</b></div>
 <div class="box"><div id="c-c27"></div></div>
 <div class="box"><table><tr><th>Plan Type</th><th>Total Purchases</th><th>Unique Users</th><th>1+ times</th><th>2+ times</th><th>3+ times</th><th>5+ times</th><th>10+ times</th></tr>{plan_freq_tbl}</table></div>
+<div class="box" style="padding:16px;border-left:3px solid #BB8FCE">
+<h4 style="color:#BB8FCE;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+<b style="color:#E74C3C">Non-Converted users</b> = People who installed, got a free trial, trial expired, but they <b>never purchased</b> any plan.<br>
+The segments table groups them by how long ago their trial expired — recent ones are easier to bring back.<br>
+<b>Purchase Frequency</b> (below) is for converted users — it shows how many times users bought each plan type.<br>
+"2+ times" means users who bought that plan at least twice — these are <b>repeat buyers</b> and your most loyal users.<br>
+<b>Tip:</b> Send a special discount offer to non-converted users within 3 days of trial expiry — after 7 days, they're unlikely to return.
+</p></div>
 </div>
 
 <div class="tc" id="t-rday">
@@ -1569,17 +1634,20 @@ Peak: <b class="r">R{peak_rday}</b> ({peak_rday_count}). Bucket: <b class="y">{h
 <div class="g2">
 <div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">R-Day Detail</h4>
 <table><tr><th>R-Day</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{rday_detail_tbl}</table></div>
-<div class="box" style="padding:16px"><h4 style="color:#4ECDC4;margin-bottom:12px;font-size:13px">Insights</h4>{ti_html}
-<h4 style="color:#FF6B6B;margin:16px 0 12px;font-size:13px">Interventions</h4>{iv_html}</div>
-</div></div>
-
-<div class="tc" id="t-insights">
-<div class="ins"><b>Data-Driven Insights</b></div>
-<div class="box" style="padding:20px"><h3 style="color:#4ECDC4;margin-bottom:14px;font-size:15px">Top Insights</h3>{insights_html}</div>
-<div class="box" style="padding:20px"><h3 style="color:#E74C3C;margin-bottom:14px;font-size:15px">Churn Risks</h3>{churn_html}</div>
-<div class="box" style="padding:20px"><h3 style="color:#27AE60;margin-bottom:14px;font-size:15px">Recommendations</h3>{rec_html}</div>
-<div class="box" style="padding:20px"><h3 style="color:#FFEAA7;margin-bottom:14px;font-size:15px">Experiments</h3>{exp_html}</div>
+<div class="box" style="padding:16px;border-left:3px solid #FF6B6B">
+<h4 style="color:#FF6B6B;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+<b>R-Day</b> = Number of days since a user's trial expired without purchasing. R1 = 1 day ago, R7 = 7 days ago.<br>
+<b>Risk Buckets</b> show how many non-converted users fall into each time range.<br>
+<b style="color:#4ECDC4">R1-R3 (1-3 days)</b> = Warm leads, most likely to convert with a nudge.<br>
+<b style="color:#F39C12">R4-R7 (4-7 days)</b> = Getting cold, need a stronger offer (discount/extended trial).<br>
+<b style="color:#E74C3C">R8+ (8+ days)</b> = Very unlikely to return without significant incentive.<br>
+<b>Tip:</b> Focus win-back campaigns on R1-R3 users — they remember the product and are cheapest to convert.
+</p>
+<h4 style="color:#4ECDC4;margin:12px 0 8px;font-size:13px">Data Insights</h4>{ti_html}
+<h4 style="color:#FF6B6B;margin:12px 0 8px;font-size:13px">Suggested Actions</h4>{iv_html}
 </div>
+</div></div>
 
 <footer>WIOM Recharge Lifecycle | {total_users} users | Generated {TODAY_STR}</footer>
 
