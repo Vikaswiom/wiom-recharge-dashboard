@@ -352,6 +352,39 @@ print(f"  Converted to paid: {n_converted} ({conv_rate:.1f}% of evaluable)")
 print(f"  Never converted (trial expired): {n_never_converted}")
 print(f"  Active paid plans: {n_active}, Churned: {n_churned}")
 
+# Month-wise install & conversion (newest first)
+month_data = OrderedDict()
+for u in users.values():
+    if u['install_time']:
+        mk = u['install_time'].strftime('%Y-%m')
+        if mk not in month_data:
+            month_data[mk] = {'installs': 0, 'converted': 0, 'trial_active': 0, 'never_converted': 0}
+        month_data[mk]['installs'] += 1
+        if u['is_converted']:
+            month_data[mk]['converted'] += 1
+        elif u['trial_active']:
+            month_data[mk]['trial_active'] += 1
+        elif u['trial_expired']:
+            month_data[mk]['never_converted'] += 1
+
+# Sort newest first
+month_data = OrderedDict(sorted(month_data.items(), reverse=True))
+
+month_tbl = ""
+for mk, md in month_data.items():
+    evaluable = md['installs'] - md['trial_active']
+    cr = md['converted'] * 100 / max(1, evaluable)
+    cr_clr = "#27AE60" if cr >= 50 else "#F39C12" if cr >= 30 else "#E74C3C"
+    month_label = datetime.strptime(mk, '%Y-%m').strftime('%b %Y')
+    trial_note = f" <small style='color:#888'>({md['trial_active']} in trial)</small>" if md['trial_active'] > 0 else ""
+    month_tbl += f"<tr><td><b>{month_label}</b></td><td>{md['installs']}</td><td>{md['converted']}</td><td>{md['never_converted']}</td><td>{md['trial_active']}</td><td>{evaluable}</td><td style='color:{cr_clr}'><b>{cr:.1f}%</b>{trial_note}</td></tr>"
+
+print(f"\nMonth-wise breakdown ({len(month_data)} months):")
+for mk, md in month_data.items():
+    evaluable = md['installs'] - md['trial_active']
+    cr = md['converted'] * 100 / max(1, evaluable)
+    print(f"  {mk}: {md['installs']} installs, {md['converted']} converted, {cr:.1f}% rate (excl {md['trial_active']} in trial)")
+
 # =====================================================================
 # SECTION 1: CONVERSION OVERVIEW (Enhanced)
 # =====================================================================
@@ -1232,7 +1265,7 @@ c29 = json.dumps({"data":[{"type":"pie","labels":_cbp_labels,"values":_cbp_vals,
     "paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},"height":420}})
 
 ALL_CHARTS = json.dumps({
-    "c1":json.loads(c1),"c2":json.loads(c2),"c3":json.loads(c3),
+    "c2":json.loads(c2),
     "c4":json.loads(c4),"c5":json.loads(c5),
     "c6":json.loads(c6),"c7":json.loads(c7),
     "c8":json.loads(c8),"c9":json.loads(c9),"c10":json.loads(c10),
@@ -1411,7 +1444,6 @@ function refreshDashboard(btn){{
 <div class="kpi"><div class="v" style="color:#FFEAA7">{median_t2p_h:.1f}h</div><div class="l">Median Install-to-Paid</div></div>
 <div class="kpi"><div class="v" style="color:#FF6B6B">{n_never_converted}</div><div class="l">Never Converted</div></div>
 <div class="kpi"><div class="v" style="color:#BB8FCE">{r1_to_r2_rate:.0f}%</div><div class="l">Paid R1-R2 Retention</div></div>
-<div class="kpi"><div class="v" style="color:#85C1E9">{median_gap_h:.1f}h</div><div class="l">Median Recharge Gap</div></div>
 <div class="kpi"><div class="v" style="color:#E74C3C">{pct_28d:.0f}%</div><div class="l">Choose 28-Day Plan</div></div>
 <div class="kpi"><div class="v" style="color:#DDA0DD">{power_pct:.0f}%</div><div class="l">Power Users (4+)</div></div>
 </div>
@@ -1433,19 +1465,21 @@ function refreshDashboard(btn){{
 <div class="tc active" id="t-conv">
 <div class="ins"><b>Trial-to-Paid Conversion:</b> <b class="g">{conv_rate:.1f}%</b> of {n_evaluable} evaluable users converted.
 <b class="r">{n_never_converted}</b> never converted (trial expired).
-<span class="badge badge-b">{n_trial_active} still in trial</span></div>
+<span class="badge badge-b">{n_trial_active} still in trial (excluded from rate)</span></div>
 <div class="stat-row">
-<div class="stat-card"><div class="sv">{median_t2p_h:.1f}h</div><div class="sl">Median Install-to-Paid</div></div>
-<div class="stat-card"><div class="sv">{p80_t2p_h:.1f}h</div><div class="sl">P80 Install-to-Paid</div></div>
-<div class="stat-card"><div class="sv">{p90_t2p_h:.1f}h</div><div class="sl">P90 Install-to-Paid</div></div>
+<div class="stat-card"><div class="sv" style="color:#27AE60">{n_converted}</div><div class="sl">Converted Users</div></div>
+<div class="stat-card"><div class="sv" style="color:#E74C3C">{n_never_converted}</div><div class="sl">Never Converted</div></div>
+<div class="stat-card"><div class="sv" style="color:#FFEAA7">{n_trial_active}</div><div class="sl">Still in Trial</div></div>
 <div class="stat-card"><div class="sv" style="color:#27AE60">{n_before_trial}</div><div class="sl">Converted Before Trial End</div></div>
-<div class="stat-card"><div class="sv" style="color:#FFEAA7">{n_after_trial}</div><div class="sl">Converted After Trial End</div></div>
+<div class="stat-card"><div class="sv" style="color:#4ECDC4">{n_after_trial}</div><div class="sl">Converted After Trial End</div></div>
 </div>
 <div class="ins" style="border-color:#FFEAA7"><b style="color:#FFEAA7">Post-Trial Expiry TAT (After-Expiry Converters Only):</b>
 Median: <b class="y">{median_tat_h:.1f} hours</b> | P80: <b>{p80_tat_h:.1f} hours</b> | P90: <b>{p90_tat_h:.1f} hours</b>
 ({n_after_trial} users who converted after trial expired)</div>
-<div class="g2"><div class="box"><div id="c-c1"></div></div><div class="box"><div id="c-c2"></div></div></div>
-<div class="box"><div id="c-c3"></div></div>
+<div class="box"><div id="c-c2"></div></div>
+<div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise Installs &amp; Conversion (Newest First)</h4>
+<p style="color:#888;font-size:11px;margin-bottom:8px">Conversion rate excludes users still in trial period</p>
+<table><tr><th>Month</th><th>Installs</th><th>Converted</th><th>Never Converted</th><th>In Trial</th><th>Evaluable</th><th>Conversion Rate</th></tr>{month_tbl}</table></div>
 </div>
 
 <div class="tc" id="t-firstplan">
@@ -1568,7 +1602,7 @@ var C={ALL_CHARTS};
 var cfg={{responsive:true,displayModeBar:true,displaylogo:false}};
 var R={{}};
 var M={{
-  conv:[["c-c1","c1"],["c-c2","c2"],["c-c3","c3"]],
+  conv:[["c-c2","c2"]],
   firstplan:[["c-c4","c4"],["c-c5","c5"]],
   retention:[["c-c6","c6"],["c-c7","c7"]],
   gaps:[["c-c8","c8"],["c-c9","c9"]],
