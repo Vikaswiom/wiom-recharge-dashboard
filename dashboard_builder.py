@@ -999,12 +999,10 @@ if rday_values:
     rday_cum_y = [sum(1 for r in rday_values if r >= rd) for rd in rday_cum_x]
     rday_cum_pct = [v*100/max(1,total_rday) for v in rday_cum_y]
     rday_buckets = OrderedDict()
-    rday_buckets['R0 (< 24h)'] = sum(1 for r in rday_values if r == 0)
-    rday_buckets['R1-R3 (1-3 days)'] = sum(1 for r in rday_values if 1<=r<=3)
-    rday_buckets['R4-R7 (4-7 days)'] = sum(1 for r in rday_values if 4<=r<=7)
+    rday_buckets['R0 (<24h)'] = sum(1 for r in rday_values if r == 0)
+    rday_buckets['R1-R7 (1-7 days)'] = sum(1 for r in rday_values if 1<=r<=7)
     rday_buckets['R8-R15 (8-15 days)'] = sum(1 for r in rday_values if 8<=r<=15)
-    rday_buckets['R16-R30 (16-30 days)'] = sum(1 for r in rday_values if 16<=r<=30)
-    rday_buckets['R30+ (>30 days)'] = sum(1 for r in rday_values if r > 30)
+    rday_buckets['R15+ (>15 days)'] = sum(1 for r in rday_values if r > 15)
     peak_rday = max(rday_dist, key=rday_dist.get)
     peak_rday_count = rday_dist[peak_rday]
     highest_risk_bucket = max(rday_buckets, key=rday_buckets.get)
@@ -1016,7 +1014,7 @@ else:
     rday_dist, max_rday, rday_table_data = Counter(), 0, OrderedDict()
     rday_cum_x, rday_cum_y, rday_cum_pct = [0], [0], [0]
     rday_buckets = OrderedDict()
-    for bk in ['R0 (< 24h)','R1-R3 (1-3 days)','R4-R7 (4-7 days)','R8-R15 (8-15 days)','R16-R30 (16-30 days)','R30+ (>30 days)']:
+    for bk in ['R0 (<24h)','R1-R7 (1-7 days)','R8-R15 (8-15 days)','R15+ (>15 days)']:
         rday_buckets[bk] = 0
     peak_rday, peak_rday_count = 0, 0
     highest_risk_bucket, highest_risk_count = 'N/A', 0
@@ -1030,7 +1028,7 @@ trial_insights = [
 ]
 intervention_ideas = [
     f"1. Day-2 Push: CTA on trial expiry. {conv_day0_count} already convert within 24h.",
-    f"2. R3-R7 Win-back: {rday_buckets.get('R4-R7 (4-7 days)',0)} users -- offer discount before going cold.",
+    f"2. R1-R7 Win-back: {rday_buckets.get('R1-R7 (1-7 days)',0)} users in first week -- offer discount before going cold.",
     f"3. Auto-renewal nudge on paid plan expiry -- {sum(1 for g in all_gaps if 0<g<=3)} renew within 72 hours.",
 ]
 
@@ -1239,7 +1237,7 @@ c25 = json.dumps({"data":[{"type":"scatter","x":[f"R{d}" for d in rday_cum_x],"y
     "xaxis":{"title":"R-Day","tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"% Still Not Converted","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"},"range":[0,105]},"height":420}})
 
 rbl2=list(rday_buckets.keys()); rbv2=list(rday_buckets.values()); rbp2=[v*100/max(1,total_rday) for v in rbv2]
-c26 = json.dumps({"data":[{"type":"bar","x":rbl2,"y":rbv2,"marker":{"color":["#4ECDC4","#27AE60","#FFEAA7","#F39C12","#E74C3C","#8B0000"]},
+c26 = json.dumps({"data":[{"type":"bar","x":rbl2,"y":rbv2,"marker":{"color":["#4ECDC4","#27AE60","#F39C12","#E74C3C"]},
     "text":[f"{v} ({p:.0f}%)" for v,p in zip(rbv2,rbp2)],"textposition":"outside","textfont":{"color":"white","size":11}}],
     "layout":{"title":{"text":"R-Day Risk Buckets","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
     "xaxis":{"tickangle":-15,"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420,"margin":{"b":80}}})
@@ -1385,10 +1383,18 @@ for seg,group in nc_segments.items():
 
 rday_detail_tbl = ""
 _cr = 0
+_r15plus = 0
 for rd in sorted(rday_table_data.keys()):
-    cnt=rday_table_data[rd]; _cr+=cnt; pr=cnt*100/max(1,total_rday); cpr=_cr*100/max(1,total_rday)
-    clr="#27AE60" if rd<=3 else "#FFEAA7" if rd<=7 else "#F39C12" if rd<=15 else "#E74C3C"
+    cnt = rday_table_data[rd]
+    if rd > 15:
+        _r15plus += cnt
+        continue
+    _cr += cnt; pr = cnt*100/max(1,total_rday); cpr = _cr*100/max(1,total_rday)
+    clr = "#4ECDC4" if rd == 0 else "#27AE60" if rd <= 7 else "#F39C12"
     rday_detail_tbl += f"<tr><td style='color:{clr}'><b>R{rd}</b></td><td>{cnt}</td><td>{pr:.1f}%</td><td>{_cr}</td><td>{cpr:.1f}%</td></tr>"
+if _r15plus > 0:
+    _cr += _r15plus; pr = _r15plus*100/max(1,total_rday); cpr = _cr*100/max(1,total_rday)
+    rday_detail_tbl += f"<tr><td style='color:#E74C3C'><b>R15+</b></td><td>{_r15plus}</td><td>{pr:.1f}%</td><td>{_cr}</td><td>{cpr:.1f}%</td></tr>"
 
 ti_html = "".join(f'<div class="hyp" style="border-color:#4ECDC4"><span style="color:#ccc">{t}</span></div>' for t in trial_insights)
 iv_html = "".join(f'<div class="hyp" style="border-color:#FF6B6B"><span style="color:#ccc">{t}</span></div>' for t in intervention_ideas)
@@ -1477,6 +1483,15 @@ function refreshDashboard(btn){{
 <div class="ins"><b>Trial-to-Paid Conversion:</b> <b class="g">{conv_rate:.1f}%</b> of {n_evaluable} evaluable users converted.
 <b class="r">{n_never_converted}</b> never converted (trial expired).
 <span class="badge badge-b">{n_trial_active} still in trial (excluded from rate)</span></div>
+<div class="box" style="padding:16px;border-left:3px solid #4ECDC4">
+<h4 style="color:#4ECDC4;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+<b style="color:#27AE60">Conversion Rate</b> = Out of all users whose free trial has ended, how many bought a paid plan.<br>
+<b style="color:#FFEAA7">Still in Trial</b> users are excluded because they haven't had a chance to convert yet.<br>
+<b style="color:#E74C3C">Never Converted</b> = Trial expired but user never purchased any plan.<br>
+The bar chart shows <b>how quickly</b> users convert after installing — most convert within 48 hours.<br>
+<b>Tip:</b> Send a push notification on the day trial expires — this is the highest conversion window.
+</p></div>
 <div class="stat-row">
 <div class="stat-card"><div class="sv" style="color:#4ECDC4">{total_users}</div><div class="sl">Total Installed</div></div>
 <div class="stat-card"><div class="sv" style="color:#27AE60">{n_converted}</div><div class="sl">Converted to Paid</div></div>
@@ -1488,24 +1503,11 @@ function refreshDashboard(btn){{
 <div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise Installs &amp; Conversion (Newest First)</h4>
 <p style="color:#888;font-size:11px;margin-bottom:8px">Conversion rate excludes users still in trial period</p>
 <table><tr><th>Month</th><th>Installs</th><th>Converted</th><th>Never Converted</th><th>In Trial</th><th>Evaluable</th><th>Conversion Rate</th></tr>{month_tbl}</table></div>
-<div class="box" style="padding:16px;border-left:3px solid #4ECDC4">
-<h4 style="color:#4ECDC4;margin-bottom:10px;font-size:13px">What does this mean?</h4>
-<p style="color:#ccc;font-size:12px;line-height:1.8">
-<b style="color:#27AE60">Conversion Rate</b> = Out of all users whose free trial has ended, how many bought a paid plan.<br>
-<b style="color:#FFEAA7">Still in Trial</b> users are excluded because they haven't had a chance to convert yet.<br>
-<b style="color:#E74C3C">Never Converted</b> = Trial expired but user never purchased any plan.<br>
-The bar chart shows <b>how quickly</b> users convert after installing — most convert within 48 hours.<br>
-<b>Tip:</b> Send a push notification on the day trial expires — this is the highest conversion window.
-</p></div>
 </div>
 
 <div class="tc" id="t-firstplan">
 <div class="ins"><b>First Paid Plan:</b> <b class="g">{pct_28d:.0f}%</b> choose 28-day. <b class="r">{pct_1d:.0f}%</b> start with 1-day.
 Based on {n_with_first_plan} converted users (all plan durations included).</div>
-<div class="box"><div id="c-c4"></div></div>
-<div class="box"><div id="c-c5"></div></div>
-<div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise First Plan Distribution (Newest First)</h4>
-<table><tr>{month_plan_hdr}</tr>{month_plan_tbl}</table></div>
 <div class="box" style="padding:16px;border-left:3px solid #F39C12">
 <h4 style="color:#F39C12;margin-bottom:10px;font-size:13px">What does this mean?</h4>
 <p style="color:#ccc;font-size:12px;line-height:1.8">
@@ -1515,15 +1517,14 @@ This shows <b>which plan duration users pick first</b> when they convert from fr
 The month-wise chart shows if plan preferences are changing over time.<br>
 <b>Tip:</b> Consider offering a discounted 7-day plan to 1-day users to encourage longer commitment.
 </p></div>
+<div class="box"><div id="c-c4"></div></div>
+<div class="box"><div id="c-c5"></div></div>
+<div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise First Plan Distribution (Newest First)</h4>
+<table><tr>{month_plan_hdr}</tr>{month_plan_tbl}</table></div>
 </div>
 
 <div class="tc" id="t-segments">
 <div class="ins"><b>User Segments:</b> <b class="r">{n_churned}</b> churned (plan expired, not recharged till date).</div>
-<div class="box"><table><tr><th>Segment</th><th>Users</th><th>%</th><th>Avg Duration</th><th>Med Gap</th><th>Avg Lifetime</th><th>Avg LTV</th><th>Churn%</th></tr>{seg_tbl}</table></div>
-<h4 style="color:#E74C3C;margin:16px 0 8px;font-size:15px">Churned Users Distribution ({n_churned} users)</h4>
-<div class="ins" style="border-color:#E74C3C"><b style="color:#E74C3C">Churned = Plan expired & not recharged till date.</b> Distribution by days since last plan expired:</div>
-<div class="g2"><div class="box"><div id="c-c28"></div></div><div class="box"><div id="c-c29"></div></div></div>
-<div class="box"><table><tr><th>Days Since Expired</th><th>Users</th><th>%</th><th>Avg Plan Duration</th></tr>{churn_dist_tbl}</table></div>
 <div class="box" style="padding:16px;border-left:3px solid #E74C3C">
 <h4 style="color:#E74C3C;margin-bottom:10px;font-size:13px">What does this mean?</h4>
 <p style="color:#ccc;font-size:12px;line-height:1.8">
@@ -1533,16 +1534,15 @@ The month-wise chart shows if plan preferences are changing over time.<br>
 The "Days Since Expired" table shows how long ago churned users' plans expired — <b>recent churns (0-3 days)</b> are the easiest to win back.<br>
 <b>Tip:</b> Target users whose plan expired 1-3 days ago with a "Welcome back" offer — they're most likely to return.
 </p></div>
+<div class="box"><table><tr><th>Segment</th><th>Users</th><th>%</th><th>Avg Duration</th><th>Med Gap</th><th>Avg Lifetime</th><th>Avg LTV</th><th>Churn%</th></tr>{seg_tbl}</table></div>
+<h4 style="color:#E74C3C;margin:16px 0 8px;font-size:15px">Churned Users Distribution ({n_churned} users)</h4>
+<div class="ins" style="border-color:#E74C3C"><b style="color:#E74C3C">Churned = Plan expired & not recharged till date.</b> Distribution by days since last plan expired:</div>
+<div class="g2"><div class="box"><div id="c-c28"></div></div><div class="box"><div id="c-c29"></div></div></div>
+<div class="box"><table><tr><th>Days Since Expired</th><th>Users</th><th>%</th><th>Avg Plan Duration</th></tr>{churn_dist_tbl}</table></div>
 </div>
 
 <div class="tc" id="t-daily">
 <div class="ins"><b>Daily Metrics:</b> Peak active: <b class="g">{peak_active_val}</b> on {peak_active_date}.</div>
-<div class="g2">
-<div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Daily Installs & Active</h4>
-<table><tr><th>Date</th><th>Installs</th><th>Cum</th><th>Conv</th><th>Cum Conv</th><th>Active Paid</th></tr>{daily_tbl1}</table></div>
-<div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">Expired & Recharged</h4>
-<table><tr><th>Date</th><th>Expired</th><th>Recharged</th><th>Rate</th></tr>{daily_tbl2}</table></div>
-</div>
 <div class="box" style="padding:16px;border-left:3px solid #85C1E9">
 <h4 style="color:#85C1E9;margin-bottom:10px;font-size:13px">How to read these tables</h4>
 <p style="color:#ccc;font-size:12px;line-height:1.8">
@@ -1552,13 +1552,28 @@ The "Days Since Expired" table shows how long ago churned users' plans expired �
 <b style="color:#27AE60">Rate</b> = Recharged / Expired — higher is better. <span style="color:#27AE60">Green (70%+)</span> = healthy, <span style="color:#F39C12">Yellow (40-70%)</span> = needs attention, <span style="color:#E74C3C">Red (&lt;40%)</span> = users are leaving.<br>
 <b>Tip:</b> If you see a red day, check if there was a service issue or if a specific plan type expired in bulk.
 </p></div>
-</div>
+<div class="g2">
+<div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Daily Installs & Active</h4>
+<table><tr><th>Date</th><th>Installs</th><th>Cum</th><th>Conv</th><th>Cum Conv</th><th>Active Paid</th></tr>{daily_tbl1}</table></div>
+<div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">Expired & Recharged</h4>
+<table><tr><th>Date</th><th>Expired</th><th>Recharged</th><th>Rate</th></tr>{daily_tbl2}</table></div>
+</div></div>
 
 <div class="tc" id="t-cohort">
 <div class="ins"><b>Plan Cohort:</b>
 <span class="badge badge-g">Same: {stick_pct:.0f}%</span>
 <span class="badge badge-b">Upgrades: {up_pct_plan:.0f}%</span>
 <span class="badge badge-r">Downgrades: {down_pct_plan:.0f}%</span> ({tot_tr} transitions)</div>
+<div class="box" style="padding:16px;border-left:3px solid #9B59B6">
+<h4 style="color:#9B59B6;margin-bottom:10px;font-size:13px">What does this mean?</h4>
+<p style="color:#ccc;font-size:12px;line-height:1.8">
+This tracks <b>how users change their plan</b> from one recharge to the next.<br>
+<b style="color:#27AE60">Same</b> = User picked the same plan again. <b style="color:#4ECDC4">Upgrade</b> = Moved to a longer plan. <b style="color:#E74C3C">Downgrade</b> = Moved to a shorter plan.<br>
+<b>Transition Matrix:</b> Read row-wise — e.g., "28-Day → 28-Day: 80%" means 80% of 28-day users recharged with 28-day again.<br>
+<b>Journey Paths:</b> Shows the most common plan sequences (e.g., 28-Day → 28-Day → 28-Day).<br>
+<b>Flow Chart (Sankey):</b> Visual of how users move between plans — thicker lines = more users taking that path.<br>
+<b>Tip:</b> If many users downgrade from 28-day to 1-day, investigate if they're facing service issues or affordability concerns.
+</p></div>
 <div class="g2"><div class="box"><div id="c-c17"></div></div><div class="box"><div id="c-c18"></div></div></div>
 <div class="g2">
 <div class="box"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Transition Matrix</h4><table><tr>{trans_hdr}</tr>{trans_tbl}</table></div>
@@ -1574,28 +1589,12 @@ The "Days Since Expired" table shows how long ago churned users' plans expired �
 <b style="color:#FFEAA7">3+ steps:</b> {total_3plus_all} users across {len(path_counter)} unique paths</p></div>
 </div>
 <div class="box"><div id="c-c16"></div></div>
-<div class="box" style="padding:16px;border-left:3px solid #9B59B6">
-<h4 style="color:#9B59B6;margin-bottom:10px;font-size:13px">What does this mean?</h4>
-<p style="color:#ccc;font-size:12px;line-height:1.8">
-This tracks <b>how users change their plan</b> from one recharge to the next.<br>
-<b style="color:#27AE60">Same</b> = User picked the same plan again. <b style="color:#4ECDC4">Upgrade</b> = Moved to a longer plan. <b style="color:#E74C3C">Downgrade</b> = Moved to a shorter plan.<br>
-<b>Transition Matrix:</b> Read row-wise — e.g., "28-Day → 28-Day: 80%" means 80% of 28-day users recharged with 28-day again.<br>
-<b>Journey Paths:</b> Shows the most common plan sequences (e.g., 28-Day → 28-Day → 28-Day).<br>
-<b>Flow Chart (Sankey):</b> Visual of how users move between plans — thicker lines = more users taking that path.<br>
-<b>Tip:</b> If many users downgrade from 28-day to 1-day, investigate if they're facing service issues or affordability concerns.
-</p></div>
 </div>
 
 <div class="tc" id="t-trialfunnel">
 <div class="ins"><b>Trial Funnel:</b> <b class="g">{n_converted}</b>/{n_evaluable} evaluable converted (<b class="g">{conv_rate:.1f}%</b>).
 Before trial: <b>{conv_before_count}</b>, After: <b>{conv_after_count}</b>.
 <b class="r">{n_never_converted}</b> never converted. <span class="badge badge-b">{n_trial_active} in trial</span></div>
-<div class="g2"><div class="box"><div id="c-c19"></div></div><div class="box"><div id="c-c20"></div></div></div>
-<div class="g2"><div class="box"><div id="c-c21"></div></div><div class="box"><div id="c-c22"></div></div></div>
-<div class="g2">
-<div class="box"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Funnel</h4><table><tr><th>Stage</th><th>Users</th><th>%</th></tr>{trial_funnel_tbl}</table></div>
-<div class="box"><h4 style="color:#FFEAA7;margin-bottom:8px;font-size:13px">Post-Trial Timing</h4><table><tr><th>Timing</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{conv_timing_tbl}</table></div>
-</div>
 <div class="box" style="padding:16px;border-left:3px solid #27AE60">
 <h4 style="color:#27AE60;margin-bottom:10px;font-size:13px">What does this mean?</h4>
 <p style="color:#ccc;font-size:12px;line-height:1.8">
@@ -1605,17 +1604,16 @@ The <b>Trial Funnel</b> shows the user journey: Install → Free Trial → Trial
 <b>Post-Trial Timing</b> shows exactly when users convert after trial ends — e.g., "Day 0" means same day as trial expiry.<br>
 <b>Tip:</b> Day 0 is the golden window. A strong push notification on trial expiry day can significantly boost conversions.
 </p></div>
-</div>
+<div class="g2"><div class="box"><div id="c-c19"></div></div><div class="box"><div id="c-c20"></div></div></div>
+<div class="g2"><div class="box"><div id="c-c21"></div></div><div class="box"><div id="c-c22"></div></div></div>
+<div class="g2">
+<div class="box"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Funnel</h4><table><tr><th>Stage</th><th>Users</th><th>%</th></tr>{trial_funnel_tbl}</table></div>
+<div class="box"><h4 style="color:#FFEAA7;margin-bottom:8px;font-size:13px">Post-Trial Timing</h4><table><tr><th>Timing</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{conv_timing_tbl}</table></div>
+</div></div>
 
 <div class="tc" id="t-nonconv">
 <div class="ins"><b>Non-Converted:</b> <b class="r">{n_never_converted}</b> trial-expired, never purchased.
 <span class="badge badge-b">{n_trial_active} still in trial</span></div>
-<div class="box"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">Non-Converted Segments (by days since trial expired)</h4>
-<table><tr><th>Segment</th><th>Users</th><th>%</th></tr>{nc_seg_tbl}</table></div>
-<h4 style="color:#4ECDC4;margin:16px 0 8px;font-size:15px">Plan-Wise Purchase Frequency</h4>
-<div class="ins" style="border-color:#FFEAA7"><b style="color:#FFEAA7">How many users purchased each plan type X+ times in their lifetime (converted users only):</b></div>
-<div class="box"><div id="c-c27"></div></div>
-<div class="box"><table><tr><th>Plan Type</th><th>Total Purchases</th><th>Unique Users</th><th>1+ times</th><th>2+ times</th><th>3+ times</th><th>5+ times</th><th>10+ times</th></tr>{plan_freq_tbl}</table></div>
 <div class="box" style="padding:16px;border-left:3px solid #BB8FCE">
 <h4 style="color:#BB8FCE;margin-bottom:10px;font-size:13px">What does this mean?</h4>
 <p style="color:#ccc;font-size:12px;line-height:1.8">
@@ -1625,29 +1623,35 @@ The segments table groups them by how long ago their trial expired — recent on
 "2+ times" means users who bought that plan at least twice — these are <b>repeat buyers</b> and your most loyal users.<br>
 <b>Tip:</b> Send a special discount offer to non-converted users within 3 days of trial expiry — after 7 days, they're unlikely to return.
 </p></div>
+<div class="box"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">Non-Converted Segments (by days since trial expired)</h4>
+<table><tr><th>Segment</th><th>Users</th><th>%</th></tr>{nc_seg_tbl}</table></div>
+<h4 style="color:#4ECDC4;margin:16px 0 8px;font-size:15px">Plan-Wise Purchase Frequency</h4>
+<div class="ins" style="border-color:#FFEAA7"><b style="color:#FFEAA7">How many users purchased each plan type X+ times in their lifetime (converted users only):</b></div>
+<div class="box"><div id="c-c27"></div></div>
+<div class="box"><table><tr><th>Plan Type</th><th>Total Purchases</th><th>Unique Users</th><th>1+ times</th><th>2+ times</th><th>3+ times</th><th>5+ times</th><th>10+ times</th></tr>{plan_freq_tbl}</table></div>
 </div>
 
 <div class="tc" id="t-rday">
 <div class="ins"><b>R-Day Report:</b> <b class="r">{total_rday}</b> non-converted with expired trial.
 Peak: <b class="r">R{peak_rday}</b> ({peak_rday_count}). Bucket: <b class="y">{highest_risk_bucket}</b> ({highest_risk_count}).</div>
-<div class="box"><div id="c-c26"></div></div>
-<div class="g2">
-<div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">R-Day Detail</h4>
-<table><tr><th>R-Day</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{rday_detail_tbl}</table></div>
 <div class="box" style="padding:16px;border-left:3px solid #FF6B6B">
 <h4 style="color:#FF6B6B;margin-bottom:10px;font-size:13px">What does this mean?</h4>
 <p style="color:#ccc;font-size:12px;line-height:1.8">
-<b>R-Day</b> = Number of days since a user's trial expired without purchasing. R1 = 1 day ago, R7 = 7 days ago.<br>
-<b>Risk Buckets</b> show how many non-converted users fall into each time range.<br>
-<b style="color:#4ECDC4">R1-R3 (1-3 days)</b> = Warm leads, most likely to convert with a nudge.<br>
-<b style="color:#F39C12">R4-R7 (4-7 days)</b> = Getting cold, need a stronger offer (discount/extended trial).<br>
-<b style="color:#E74C3C">R8+ (8+ days)</b> = Very unlikely to return without significant incentive.<br>
-<b>Tip:</b> Focus win-back campaigns on R1-R3 users — they remember the product and are cheapest to convert.
+<b>R-Day</b> = Number of days since a user's free trial expired without purchasing. R1 = yesterday, R7 = a week ago.<br>
+<b>Risk Buckets chart</b> groups these users into time ranges to show urgency:<br>
+<b style="color:#4ECDC4">R0 (&lt;24h)</b> = Trial just expired today — best time to send a push notification.<br>
+<b style="color:#27AE60">R1-R7 (1-7 days)</b> = Still warm — send a discount offer or reminder.<br>
+<b style="color:#F39C12">R8-R15 (8-15 days)</b> = Going cold — need a stronger incentive to come back.<br>
+<b style="color:#E74C3C">R15+ (&gt;15 days)</b> = Very unlikely to return — low priority for campaigns.<br>
+<b>Tip:</b> Focus win-back campaigns on R0-R7 users — they still remember the product and are cheapest to convert.
 </p>
 <h4 style="color:#4ECDC4;margin:12px 0 8px;font-size:13px">Data Insights</h4>{ti_html}
 <h4 style="color:#FF6B6B;margin:12px 0 8px;font-size:13px">Suggested Actions</h4>{iv_html}
 </div>
-</div></div>
+<div class="box"><div id="c-c26"></div></div>
+<div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">R-Day Detail (R0 to R15, then R15+ combined)</h4>
+<table><tr><th>R-Day</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{rday_detail_tbl}</table></div>
+</div>
 
 <footer>WIOM Recharge Lifecycle | {total_users} users | Generated {TODAY_STR}</footer>
 
