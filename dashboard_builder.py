@@ -1285,7 +1285,6 @@ ALL_CHARTS = json.dumps({
     "c2":json.loads(c2),
     "c4":json.loads(c4),"c5":json.loads(c5),
     "c16":json.loads(c16),"c17":json.loads(c17),"c18":json.loads(c18),
-    "c19":json.loads(c19),"c20":json.loads(c20),"c21":json.loads(c21),"c22":json.loads(c22),
     "c26":json.loads(c26),
     "c27":json.loads(c27),"c28":json.loads(c28),"c29":json.loads(c29),
 })
@@ -1474,9 +1473,8 @@ function refreshDashboard(btn){{
 <div class="tab" data-t="segments">3. Segments</div>
 <div class="tab" data-t="daily">4. Daily Metrics</div>
 <div class="tab" data-t="cohort">5. Plan Cohort</div>
-<div class="tab" data-t="trialfunnel">6. Trial Funnel</div>
-<div class="tab" data-t="nonconv">7. Non-Converted</div>
-<div class="tab" data-t="rday">8. R-Day Report</div>
+<div class="tab" data-t="nonconv">6. Non-Converted</div>
+<div class="tab" data-t="rday">7. R-Day Report</div>
 </div>
 
 <div class="tc active" id="t-conv">
@@ -1591,26 +1589,6 @@ This tracks <b>how users change their plan</b> from one recharge to the next.<br
 <div class="box"><div id="c-c16"></div></div>
 </div>
 
-<div class="tc" id="t-trialfunnel">
-<div class="ins"><b>Trial Funnel:</b> <b class="g">{n_converted}</b>/{n_evaluable} evaluable converted (<b class="g">{conv_rate:.1f}%</b>).
-Before trial: <b>{conv_before_count}</b>, After: <b>{conv_after_count}</b>.
-<b class="r">{n_never_converted}</b> never converted. <span class="badge badge-b">{n_trial_active} in trial</span></div>
-<div class="box" style="padding:16px;border-left:3px solid #27AE60">
-<h4 style="color:#27AE60;margin-bottom:10px;font-size:13px">What does this mean?</h4>
-<p style="color:#ccc;font-size:12px;line-height:1.8">
-The <b>Trial Funnel</b> shows the user journey: Install → Free Trial → Trial Expires → Paid Plan (or drop off).<br>
-<b>Before trial</b> = Users who bought a paid plan even before their free trial ended — these are high-intent users.<br>
-<b>After trial</b> = Users who waited for trial to expire, then purchased — most common behavior.<br>
-<b>Post-Trial Timing</b> shows exactly when users convert after trial ends — e.g., "Day 0" means same day as trial expiry.<br>
-<b>Tip:</b> Day 0 is the golden window. A strong push notification on trial expiry day can significantly boost conversions.
-</p></div>
-<div class="g2"><div class="box"><div id="c-c19"></div></div><div class="box"><div id="c-c20"></div></div></div>
-<div class="g2"><div class="box"><div id="c-c21"></div></div><div class="box"><div id="c-c22"></div></div></div>
-<div class="g2">
-<div class="box"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:13px">Funnel</h4><table><tr><th>Stage</th><th>Users</th><th>%</th></tr>{trial_funnel_tbl}</table></div>
-<div class="box"><h4 style="color:#FFEAA7;margin-bottom:8px;font-size:13px">Post-Trial Timing</h4><table><tr><th>Timing</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{conv_timing_tbl}</table></div>
-</div></div>
-
 <div class="tc" id="t-nonconv">
 <div class="ins"><b>Non-Converted:</b> <b class="r">{n_never_converted}</b> trial-expired, never purchased.
 <span class="badge badge-b">{n_trial_active} still in trial</span></div>
@@ -1664,7 +1642,6 @@ var M={{
   firstplan:[["c-c4","c4"],["c-c5","c5"]],
   segments:[["c-c28","c28"],["c-c29","c29"]],
   cohort:[["c-c16","c16"],["c-c17","c17"],["c-c18","c18"]],
-  trialfunnel:[["c-c19","c19"],["c-c20","c20"],["c-c21","c21"],["c-c22","c22"]],
   nonconv:[["c-c27","c27"]],
   rday:[["c-c26","c26"]]
 }};
