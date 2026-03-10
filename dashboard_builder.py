@@ -139,7 +139,7 @@ def safe_int(s, default=0):
     try: return int(float(s))
     except (ValueError, TypeError): return default
 
-NOW = datetime.now()
+NOW = datetime.utcnow() + timedelta(hours=5, minutes=30)  # Convert UTC to IST
 NOW_STR = NOW.strftime('%b %d, %Y %H:%M')
 TODAY = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
 TODAY_STR = TODAY.strftime('%b %d, %Y')
@@ -1387,9 +1387,18 @@ footer{{text-align:center;padding:24px;color:#333;font-size:11px;border-top:1px 
 <div><h1>WIOM Recharge Lifecycle Analytics</h1>
 <p>{total_users} users | {n_converted} converted, {n_never_converted} never converted, {n_trial_active} trial active | {len(paid_rows)} paid recharge records</p></div>
 <div style="text-align:right">
-<div style="font-size:11px;color:#4ECDC4;margin-bottom:4px">Last Updated: {NOW_STR} IST</div>
-<a href="/refresh"
-style="background:linear-gradient(135deg,#4ECDC4,#27AE60);color:#0a0a1a;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer">Refresh Data</a>
+<div id="update-time" style="font-size:11px;color:#4ECDC4;margin-bottom:4px">Last Updated: {NOW_STR} IST</div>
+<button onclick="refreshDashboard(this)"
+style="background:linear-gradient(135deg,#4ECDC4,#27AE60);color:#0a0a1a;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer">Refresh Data</button>
+<script>
+function refreshDashboard(btn){{
+  btn.disabled=true;
+  btn.textContent='Refreshing...';
+  btn.style.opacity='0.7';
+  document.getElementById('update-time').innerHTML='<span style="color:#FF6B6B">Refreshing...</span> Data auto-updates every 15 min';
+  setTimeout(function(){{ location.reload(); }},3000);
+}}
+</script>
 </div></div>
 
 <div class="kpis">
