@@ -759,11 +759,24 @@ for sd in step_trans.values():
         for tp, cnt in tgts.items():
             overall_trans[fp][tp] += cnt
 
+# Count users who did NOT recharge after their last plan expired
+for u in users.values():
+    recs = u['paid_recs']
+    if len(recs) == 0: continue
+    last_rec = recs[-1]
+    last_end = last_rec['plan_end']
+    # If last plan expired and no next recharge â†’ "No Recharge"
+    if last_end and last_end < TODAY and not u['plan_active']:
+        last_plan = plan_cat(last_rec['plan_duration'])
+        overall_trans[last_plan]['No Recharge'] += 1
+
 all_plan_types = sorted(set(
     list(overall_trans.keys()) +
-    [tp for tgts in overall_trans.values() for tp in tgts.keys()]
+    [tp for tgts in overall_trans.values() for tp in tgts.keys() if tp != 'No Recharge']
 ), key=lambda x: _plan_order_list.index(x) if x in _plan_order_list else 99)
 if not all_plan_types: all_plan_types = _plan_order_list
+# Add "No Recharge" as the last column
+all_plan_types_with_nr = all_plan_types + ['No Recharge']
 
 # Sankey
 max_sankey = min(5, max((r.get('recharge_num', 1) for r in paid_rows), default=1))
@@ -788,17 +801,19 @@ for fr in range(1, max_sankey):
                 else: sankey_link_clr.append("rgba(150,150,150,0.3)")
 
 # Stickiness
-same_p, up_p, down_p, tot_tr = 0, 0, 0, 0
-_p_rank = {'1-Day': 1, '2-Day': 2, '7-Day': 7, '14-Day': 14, '28-Day': 28}
+same_p, up_p, down_p, no_rech_p, tot_tr = 0, 0, 0, 0, 0
+_p_rank = {'1-Day': 1, '2-Day': 2, '7-Day': 7, '14-Day': 14, '28-Day': 28, '112-Day': 112, '360-Day': 360}
 for fp, tgts in overall_trans.items():
     for tp, cnt in tgts.items():
         tot_tr += cnt
-        if fp == tp: same_p += cnt
+        if tp == 'No Recharge': no_rech_p += cnt
+        elif fp == tp: same_p += cnt
         elif _p_rank.get(tp,0) > _p_rank.get(fp,0): up_p += cnt
         else: down_p += cnt
 stick_pct = same_p * 100 / max(1, tot_tr)
 up_pct_plan = up_p * 100 / max(1, tot_tr)
 down_pct_plan = down_p * 100 / max(1, tot_tr)
+no_rech_pct = no_rech_p * 100 / max(1, tot_tr)
 
 # Per-recharge plan distribution
 rech_plan_dist = defaultdict(Counter)
@@ -1179,11 +1194,11 @@ c16 = json.dumps({"data":[{"type":"sankey","node":{"label":sankey_labels,"color"
     "link":{"source":sankey_src,"target":sankey_tgt,"value":sankey_val,"color":sankey_link_clr}}],
     "layout":{"title":{"text":"Plan Duration Flow (Paid Recharges)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white","size":10},"height":550,"margin":{"l":20,"r":20}}})
 
-# 17. Transition heatmap
-trans_z = [[overall_trans[fp].get(tp,0) for tp in all_plan_types] for fp in all_plan_types]
-c17 = json.dumps({"data":[{"type":"heatmap","z":trans_z,"x":all_plan_types,"y":all_plan_types,
-    "colorscale":[[0,"#0f0f23"],[1,"#4ECDC4"]],"text":trans_z,"texttemplate":"%{text}","textfont":{"size":12,"color":"white"}}],
-    "layout":{"title":{"text":"Plan Transition Matrix","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
+# 17. Transition heatmap (includes No Recharge column)
+trans_z = [[overall_trans[fp].get(tp,0) for tp in all_plan_types_with_nr] for fp in all_plan_types]
+c17 = json.dumps({"data":[{"type":"heatmap","z":trans_z,"x":all_plan_types_with_nr,"y":all_plan_types,
+    "colorscale":[[0,"#0f0f23"],[0.5,"#4ECDC4"],[1,"#E74C3C"]],"text":trans_z,"texttemplate":"%{text}","textfont":{"size":12,"color":"white"}}],
+    "layout":{"title":{"text":"Plan Transition Matrix (incl. No Recharge)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
     "xaxis":{"title":"To Plan","tickfont":{"color":"#ccc"}},"yaxis":{"title":"From Plan","tickfont":{"color":"#ccc"},"autorange":"reversed"},"height":420}})
 
 # 18. Plan dist per recharge
@@ -1345,14 +1360,18 @@ for dk in day_metrics:
     clr="#27AE60" if r>=70 else "#F39C12" if r>=40 else "#E74C3C"
     daily_tbl2 += f"<tr><td>{dk}</td><td style='color:#E74C3C'>{m['expired']}</td><td style='color:#27AE60'>{m['recharged']}</td><td style='color:{clr}'><b>{rs}</b></td></tr>"
 
-trans_hdr = "<th>From \\ To</th>"+"".join(f"<th>{tp}</th>" for tp in all_plan_types)+"<th>Total</th>"
+trans_hdr = "<th>From \\ To</th>"+"".join(f"<th>{tp}</th>" for tp in all_plan_types_with_nr)+"<th>Total</th>"
 trans_tbl = ""
 for fp in all_plan_types:
     rt=sum(overall_trans[fp].values()); cells=""
-    for tp in all_plan_types:
+    for tp in all_plan_types_with_nr:
         cnt=overall_trans[fp][tp]; pct=cnt*100/max(1,rt)
-        bg=f"rgba(78,205,196,{min(pct/100*2,0.6):.2f})" if cnt>0 else "transparent"
-        cells += f"<td style='background:{bg}'>{cnt} <small>({pct:.0f}%)</small></td>"
+        if tp == 'No Recharge':
+            bg=f"rgba(231,76,60,{min(pct/100*2,0.6):.2f})" if cnt>0 else "transparent"
+            cells += f"<td style='background:{bg};color:#E74C3C'><b>{cnt}</b> <small>({pct:.0f}%)</small></td>"
+        else:
+            bg=f"rgba(78,205,196,{min(pct/100*2,0.6):.2f})" if cnt>0 else "transparent"
+            cells += f"<td style='background:{bg}'>{cnt} <small>({pct:.0f}%)</small></td>"
     trans_tbl += f"<tr><td><b>{fp}</b></td>{cells}<td><b>{rt}</b></td></tr>"
 
 paths_tbl = ""
@@ -1492,6 +1511,13 @@ function refreshDashboard(btn){{
 <input type="date" id="df-to" value="{DATE_MAX_STR}" min="{DATE_MIN_STR}" max="{DATE_MAX_STR}">
 <button onclick="applyDateFilter()">Apply Filter</button>
 <button class="reset-btn" onclick="resetDateFilter()">Reset</button>
+<span style="color:#555;font-size:10px;margin:0 4px">|</span>
+<button class="reset-btn" onclick="setPreset('7d')">Last 7 Days</button>
+<button class="reset-btn" onclick="setPreset('14d')">Last 14 Days</button>
+<button class="reset-btn" onclick="setPreset('30d')">Last 30 Days</button>
+<button class="reset-btn" onclick="setPreset('tm')">This Month</button>
+<button class="reset-btn" onclick="setPreset('lm')">Last Month</button>
+<button class="reset-btn" onclick="resetDateFilter()">All Time</button>
 <span class="filter-info" id="df-info">Showing all data: {DATE_MIN_STR} to {DATE_MAX_STR}</span>
 </div>
 
@@ -1599,7 +1625,8 @@ The "Days Since Expired" table shows how long ago churned users' plans expired â
 <div class="ins"><b>Plan Cohort:</b>
 <span class="badge badge-g">Same: {stick_pct:.0f}%</span>
 <span class="badge badge-b">Upgrades: {up_pct_plan:.0f}%</span>
-<span class="badge badge-r">Downgrades: {down_pct_plan:.0f}%</span> ({tot_tr} transitions)</div>
+<span class="badge badge-r">Downgrades: {down_pct_plan:.0f}%</span>
+<span class="badge badge-r">No Recharge: {no_rech_pct:.0f}%</span> ({tot_tr} total transitions)</div>
 <div class="box" style="padding:16px;border-left:3px solid #9B59B6">
 <h4 style="color:#9B59B6;margin-bottom:10px;font-size:13px">What does this mean?</h4>
 <p style="color:#ccc;font-size:12px;line-height:1.8">
@@ -1691,6 +1718,22 @@ window.addEventListener("load",function(){{render("conv")}});
 /* --- Date Filter --- */
 var UD={USER_DATA_JSON};
 var DF_MIN="{DATE_MIN_STR}",DF_MAX="{DATE_MAX_STR}";
+
+function setPreset(p){{
+  var today=new Date("{DATE_MAX_STR}");
+  var from,to;
+  to="{DATE_MAX_STR}";
+  if(p==='7d'){{from=_ds(new Date(today.getTime()-6*86400000))}}
+  else if(p==='14d'){{from=_ds(new Date(today.getTime()-13*86400000))}}
+  else if(p==='30d'){{from=_ds(new Date(today.getTime()-29*86400000))}}
+  else if(p==='tm'){{from=today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-01"}}
+  else if(p==='lm'){{var lm=new Date(today.getFullYear(),today.getMonth()-1,1);from=_ds(lm);to=_ds(new Date(today.getFullYear(),today.getMonth(),0))}}
+  if(from<DF_MIN)from=DF_MIN;
+  document.getElementById("df-from").value=from;
+  document.getElementById("df-to").value=to;
+  applyDateFilter();
+}}
+function _ds(d){{return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}}
 
 function applyDateFilter(){{
   var f=document.getElementById("df-from").value;
