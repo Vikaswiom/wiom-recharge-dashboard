@@ -1398,6 +1398,27 @@ if _r15plus > 0:
 ti_html = "".join(f'<div class="hyp" style="border-color:#4ECDC4"><span style="color:#ccc">{t}</span></div>' for t in trial_insights)
 iv_html = "".join(f'<div class="hyp" style="border-color:#FF6B6B"><span style="color:#ccc">{t}</span></div>' for t in intervention_ideas)
 
+# User-level data for client-side date filtering
+user_data_for_filter = []
+for u in users.values():
+    ud = {
+        'd': u['install_time'].strftime('%Y-%m-%d') if u['install_time'] else None,
+        'c': 1 if u['is_converted'] else 0,
+        'ta': 1 if u['trial_active'] else 0,
+        'te': 1 if u['trial_expired'] else 0,
+        'fp': u['first_paid_dur'],
+        't2p': round(u['trial_to_paid'], 3) if u['trial_to_paid'] is not None else None,
+        'ch': 1 if u['is_churned'] else 0,
+        'pa': 1 if u['plan_active'] else 0,
+        'mr': u['max_paid_recharge'],
+        'rd': u['r_day'],
+    }
+    user_data_for_filter.append(ud)
+USER_DATA_JSON = json.dumps(user_data_for_filter)
+print(f"User data JSON: {len(user_data_for_filter)} users, {len(USER_DATA_JSON)//1024} KB")
+DATE_MIN_STR = str(date_min)
+DATE_MAX_STR = str(date_max)
+
 # --- HTML ---
 html = f'''<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -1433,6 +1454,13 @@ td{{padding:7px 10px;border-bottom:1px solid #1a1a3e}}tr:hover{{background:#1414
 .stat-card{{background:#14142e;border:1px solid #2a2a5e;border-radius:8px;padding:12px 18px;text-align:center;flex:1;min-width:120px}}
 .stat-card .sv{{font-size:22px;font-weight:800;color:#4ECDC4}}.stat-card .sl{{font-size:10px;color:#888;text-transform:uppercase}}
 footer{{text-align:center;padding:24px;color:#333;font-size:11px;border-top:1px solid #1a1a3e;margin-top:30px}}
+.date-filter{{background:#14142e;border:1px solid #2a2a5e;border-radius:10px;padding:12px 24px;margin:12px 36px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}}
+.date-filter label{{color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.5px}}
+.date-filter input[type=date]{{background:#0f0f23;border:1px solid #2a2a5e;color:#4ECDC4;padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit}}
+.date-filter button{{background:linear-gradient(135deg,#4ECDC4,#27AE60);color:#0a0a1a;padding:6px 18px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer}}
+.date-filter button:hover{{opacity:.9}}
+.date-filter .reset-btn{{background:#2a2a5e;color:#ccc}}
+.date-filter .filter-info{{color:#4ECDC4;font-size:11px;font-weight:600}}
 </style></head><body>
 
 <div class="hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
@@ -1457,13 +1485,23 @@ function refreshDashboard(btn){{
 </script>
 </div></div>
 
-<div class="kpis">
-<div class="kpi"><div class="v" style="color:#4ECDC4">{total_users}</div><div class="l">Total Users</div></div>
-<div class="kpi"><div class="v" style="color:#27AE60">{conv_rate:.1f}%</div><div class="l">Conversion Rate</div></div>
-<div class="kpi"><div class="v" style="color:#FFEAA7">{median_t2p_h:.1f}h</div><div class="l">Median Install-to-Paid</div></div>
-<div class="kpi"><div class="v" style="color:#FF6B6B">{n_never_converted}</div><div class="l">Never Converted</div></div>
+<div class="date-filter">
+<label>From</label>
+<input type="date" id="df-from" value="{DATE_MIN_STR}" min="{DATE_MIN_STR}" max="{DATE_MAX_STR}">
+<label>To</label>
+<input type="date" id="df-to" value="{DATE_MAX_STR}" min="{DATE_MIN_STR}" max="{DATE_MAX_STR}">
+<button onclick="applyDateFilter()">Apply Filter</button>
+<button class="reset-btn" onclick="resetDateFilter()">Reset</button>
+<span class="filter-info" id="df-info">Showing all data: {DATE_MIN_STR} to {DATE_MAX_STR}</span>
+</div>
+
+<div class="kpis" id="kpi-bar">
+<div class="kpi"><div class="v" style="color:#4ECDC4" id="kpi-total">{total_users}</div><div class="l">Total Users</div></div>
+<div class="kpi"><div class="v" style="color:#27AE60" id="kpi-conv">{conv_rate:.1f}%</div><div class="l">Conversion Rate</div></div>
+<div class="kpi"><div class="v" style="color:#FFEAA7" id="kpi-t2p">{median_t2p_h:.1f}h</div><div class="l">Median Install-to-Paid</div></div>
+<div class="kpi"><div class="v" style="color:#FF6B6B" id="kpi-nc">{n_never_converted}</div><div class="l">Never Converted</div></div>
 <div class="kpi"><div class="v" style="color:#BB8FCE">{r1_to_r2_rate:.0f}%</div><div class="l">Paid R1-R2 Retention</div></div>
-<div class="kpi"><div class="v" style="color:#E74C3C">{pct_28d:.0f}%</div><div class="l">Choose 28-Day Plan</div></div>
+<div class="kpi"><div class="v" style="color:#E74C3C" id="kpi-28d">{pct_28d:.0f}%</div><div class="l">Choose 28-Day Plan</div></div>
 <div class="kpi"><div class="v" style="color:#DDA0DD">{power_pct:.0f}%</div><div class="l">Power Users (4+)</div></div>
 </div>
 
@@ -1649,6 +1687,186 @@ function render(t){{if(R[t])return;var items=M[t];if(!items)return;items.forEach
 function sw(t){{document.querySelectorAll(".tc").forEach(function(e){{e.classList.remove("active")}});document.querySelectorAll(".tab").forEach(function(e){{e.classList.remove("active")}});document.getElementById("t-"+t).classList.add("active");document.querySelector('[data-t="'+t+'"]').classList.add("active");setTimeout(function(){{render(t)}},50)}}
 document.getElementById("tb").addEventListener("click",function(e){{var t=e.target.getAttribute("data-t");if(t)sw(t)}});
 window.addEventListener("load",function(){{render("conv")}});
+
+/* --- Date Filter --- */
+var UD={USER_DATA_JSON};
+var DF_MIN="{DATE_MIN_STR}",DF_MAX="{DATE_MAX_STR}";
+
+function applyDateFilter(){{
+  var f=document.getElementById("df-from").value;
+  var t=document.getElementById("df-to").value;
+  if(!f||!t)return;
+  var fu=UD.filter(function(u){{return u.d && u.d>=f && u.d<=t}});
+  document.getElementById("df-info").textContent="Filtered: "+f+" to "+t+" ("+fu.length+" users)";
+
+  /* KPIs */
+  var tot=fu.length, conv=0, nc=0, ta=0, te=0, t2ps=[];
+  var fpDurs={{}};
+  fu.forEach(function(u){{
+    if(u.c){{conv++;if(u.t2p!==null)t2ps.push(u.t2p)}}
+    if(u.ta)ta++;
+    if(u.te)nc++;
+    if(u.c && u.fp>0){{var k=u.fp;fpDurs[k]=(fpDurs[k]||0)+1}}
+  }});
+  var evaluable=conv+nc;
+  var crate=evaluable>0?(conv*100/evaluable):0;
+  t2ps.sort(function(a,b){{return a-b}});
+  var medT2p=t2ps.length>0?t2ps[Math.floor(t2ps.length/2)]*24:0;
+  var n28=fpDurs[28]||0;
+  var pct28=conv>0?(n28*100/conv):0;
+
+  document.getElementById("kpi-total").textContent=tot;
+  document.getElementById("kpi-conv").textContent=crate.toFixed(1)+"%";
+  document.getElementById("kpi-t2p").textContent=medT2p.toFixed(1)+"h";
+  document.getElementById("kpi-nc").textContent=nc;
+  document.getElementById("kpi-28d").textContent=pct28.toFixed(0)+"%";
+
+  /* Rebuild c2: conversion time buckets */
+  var bkts={{"< 24 Hours":0,"24-48 Hours":0,"2-7 Days":0,"7-14 Days":0,"14+ Days":0}};
+  var bktOrder=["< 24 Hours","24-48 Hours","2-7 Days","7-14 Days","14+ Days"];
+  var bktColors=["#27AE60","#4ECDC4","#FFEAA7","#F39C12","#E74C3C"];
+  fu.forEach(function(u){{
+    if(!u.c||u.t2p===null)return;
+    var d=u.t2p;
+    if(d<1)bkts["< 24 Hours"]++;
+    else if(d<2)bkts["24-48 Hours"]++;
+    else if(d<7)bkts["2-7 Days"]++;
+    else if(d<14)bkts["7-14 Days"]++;
+    else bkts["14+ Days"]++;
+  }});
+  var bV=bktOrder.map(function(k){{return bkts[k]}});
+  var bT=bV.map(function(v){{var p=t2ps.length>0?(v*100/t2ps.length).toFixed(1):"0.0";return v+" ("+p+"%)" }});
+  Plotly.react("c-c2",[{{type:"bar",x:bktOrder,y:bV,marker:{{color:bktColors}},text:bT,textposition:"outside",textfont:{{color:"white",size:11}}}}],
+    {{title:{{text:"Conversion Time Buckets (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}},gridcolor:"#1a1a3e"}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
+
+  /* Rebuild c4: first plan bar (overall) */
+  var fpKeys=Object.keys(fpDurs).map(Number).sort(function(a,b){{return a-b}});
+  var fpL=fpKeys.map(function(k){{return k+"-Day"}});
+  var fpV=fpKeys.map(function(k){{return fpDurs[k]}});
+  var fpTotal=fpV.reduce(function(a,b){{return a+b}},0);
+  var fpT=fpV.map(function(v){{var p=fpTotal>0?(v*100/fpTotal).toFixed(1):"0";return v+" ("+p+"%)"}});
+  Plotly.react("c-c4",[{{type:"bar",x:fpL,y:fpV,marker:{{color:"#4ECDC4",line:{{color:"#0f0f23",width:1}}}},text:fpT,textposition:"outside",textfont:{{color:"white",size:11}}}}],
+    {{title:{{text:"First Paid Plan Duration (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
+    xaxis:{{title:"Plan Duration",tickfont:{{color:"#ccc"}},categoryorder:"array",categoryarray:fpL}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
+
+  /* Rebuild c5: month-wise plan (grouped bar) */
+  var mpData={{}};
+  var allDurs={{}};
+  fu.forEach(function(u){{
+    if(!u.c||!u.fp||u.fp<=0||!u.d)return;
+    var mk=u.d.substring(0,7);
+    if(!mpData[mk])mpData[mk]={{}};
+    mpData[mk][u.fp]=(mpData[mk][u.fp]||0)+1;
+    allDurs[u.fp]=1;
+  }});
+  var mks=Object.keys(mpData).sort().reverse();
+  var mkLabels=mks.map(function(m){{var p=m.split("-");var mn=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return mn[parseInt(p[1])]+" "+p[0]}});
+  var durKeys=Object.keys(allDurs).map(Number).sort(function(a,b){{return a-b}});
+  var barColors=["#E74C3C","#9B59B6","#F39C12","#FFEAA7","#4ECDC4","#27AE60","#85C1E9","#DDA0DD","#FF6B6B","#3498DB"];
+  var c5traces=durKeys.map(function(d,i){{
+    var vals=mks.map(function(mk){{return (mpData[mk][d]||0)}});
+    return {{type:"bar",name:d+"-Day",x:mkLabels,y:vals,marker:{{color:barColors[i%barColors.length]}}}};
+  }});
+  Plotly.react("c-c5",c5traces,
+    {{title:{{text:"Month-Wise First Plan (Filtered)",font:{{size:18,color:"white"}}}},barmode:"group",paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:450,legend:{{font:{{color:"#ccc"}}}}}},cfg);
+
+  /* Rebuild month-wise conversion table */
+  var mConv={{}};
+  fu.forEach(function(u){{
+    if(!u.d)return;
+    var mk=u.d.substring(0,7);
+    if(!mConv[mk])mConv[mk]={{inst:0,conv:0,nc:0,ta:0}};
+    mConv[mk].inst++;
+    if(u.c)mConv[mk].conv++;
+    else if(u.ta)mConv[mk].ta++;
+    else if(u.te)mConv[mk].nc++;
+  }});
+  var mConvKeys=Object.keys(mConv).sort().reverse();
+  var mtHtml="";
+  mConvKeys.forEach(function(mk){{
+    var d=mConv[mk];
+    var ev=d.conv+d.nc;
+    var cr=ev>0?(d.conv*100/ev).toFixed(1):"N/A";
+    var clr=parseFloat(cr)>=50?"#27AE60":parseFloat(cr)>=30?"#F39C12":"#E74C3C";
+    if(cr==="N/A")clr="#888";
+    var p=mk.split("-");var mn=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var lbl=mn[parseInt(p[1])]+" "+p[0];
+    mtHtml+="<tr><td>"+lbl+"</td><td>"+d.inst+"</td><td>"+d.conv+"</td><td>"+d.nc+"</td><td>"+d.ta+"</td><td>"+ev+"</td><td style='color:"+clr+"'><b>"+cr+"%</b></td></tr>";
+  }});
+  var mtTbl=document.querySelector("#t-conv table");
+  if(mtTbl){{var tb=mtTbl.querySelector("tbody")||mtTbl;var hdr=mtTbl.querySelector("tr");tb.innerHTML="";if(hdr)tb.appendChild(hdr);tb.innerHTML+=mtHtml}}
+
+  /* Rebuild month-wise plan table */
+  var mpTbl=document.querySelector("#t-firstplan table");
+  if(mpTbl){{
+    var durH="<th>Month</th>"+durKeys.map(function(d){{return "<th>"+d+"-Day</th>"}}).join("")+"<th>Total</th>";
+    var mpRows="";
+    mks.forEach(function(mk){{
+      var p=mk.split("-");var mn=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      var lbl=mn[parseInt(p[1])]+" "+p[0];
+      var total=0;
+      var cells=durKeys.map(function(d){{var v=mpData[mk][d]||0;total+=v;return "<td>"+v+"</td>"}}).join("");
+      mpRows+="<tr><td>"+lbl+"</td>"+cells+"<td><b>"+total+"</b></td></tr>";
+    }});
+    var tb=mpTbl.querySelector("tbody")||mpTbl;
+    tb.innerHTML="<tr>"+durH+"</tr>"+mpRows;
+  }}
+
+  /* Rebuild segments charts (c28, c29) with filtered data */
+  var churnDist={{"1-time":0,"2-3 times":0,"4-7 times":0,"8+ times":0}};
+  var churnOrder=["1-time","2-3 times","4-7 times","8+ times"];
+  fu.forEach(function(u){{
+    if(!u.ch)return;
+    var mr=u.mr||0;
+    if(mr<=1)churnDist["1-time"]++;
+    else if(mr<=3)churnDist["2-3 times"]++;
+    else if(mr<=7)churnDist["4-7 times"]++;
+    else churnDist["8+ times"]++;
+  }});
+  var cdV=churnOrder.map(function(k){{return churnDist[k]}});
+  var cdColors=["#E74C3C","#F39C12","#FFEAA7","#27AE60"];
+  Plotly.react("c-c28",[{{type:"bar",x:churnOrder,y:cdV,marker:{{color:cdColors}},text:cdV.map(String),textposition:"outside",textfont:{{color:"white",size:12}}}}],
+    {{title:{{text:"Churned Users by Recharge Count (Filtered)",font:{{size:16,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:400}},cfg);
+
+  /* Rebuild R-Day chart (c26) */
+  var rBkts={{"R0 (<24h)":0,"R1-R7":0,"R8-R15":0,"R15+":0}};
+  var rOrder=["R0 (<24h)","R1-R7","R8-R15","R15+"];
+  fu.forEach(function(u){{
+    if(u.rd===null||u.rd===undefined||!u.te)return;
+    if(u.rd===0)rBkts["R0 (<24h)"]++;
+    else if(u.rd<=7)rBkts["R1-R7"]++;
+    else if(u.rd<=15)rBkts["R8-R15"]++;
+    else rBkts["R15+"]++;
+  }});
+  var rV=rOrder.map(function(k){{return rBkts[k]}});
+  var rColors=["#4ECDC4","#27AE60","#F39C12","#E74C3C"];
+  Plotly.react("c-c26",[{{type:"bar",x:rOrder,y:rV,marker:{{color:rColors}},text:rV.map(String),textposition:"outside",textfont:{{color:"white",size:12}}}}],
+    {{title:{{text:"R-Day Risk Buckets (Filtered)",font:{{size:16,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:400}},cfg);
+
+  R={{}};
+}}
+
+function resetDateFilter(){{
+  document.getElementById("df-from").value=DF_MIN;
+  document.getElementById("df-to").value=DF_MAX;
+  document.getElementById("df-info").textContent="Showing all data: "+DF_MIN+" to "+DF_MAX;
+  document.getElementById("kpi-total").textContent="{total_users}";
+  document.getElementById("kpi-conv").textContent="{conv_rate:.1f}%";
+  document.getElementById("kpi-t2p").textContent="{median_t2p_h:.1f}h";
+  document.getElementById("kpi-nc").textContent="{n_never_converted}";
+  document.getElementById("kpi-28d").textContent="{pct_28d:.0f}%";
+  /* Re-render original charts */
+  ["c2","c4","c5","c26","c28"].forEach(function(k){{
+    var el=document.getElementById("c-"+k);
+    if(el&&C[k])Plotly.react("c-"+k,C[k].data,C[k].layout,cfg);
+  }});
+  /* Restore original tables - reload page for simplicity */
+  location.reload();
+}}
 </script></body></html>'''
 
 path = os.path.join(OUT, 'recharge_dashboard.html')
