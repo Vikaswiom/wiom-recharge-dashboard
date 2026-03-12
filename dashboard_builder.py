@@ -357,26 +357,26 @@ print(f"  Never converted (trial expired): {n_never_converted}")
 print(f"  Active paid plans: {n_active}, Churned: {n_churned}")
 
 # D-day conversion retention table
-# For each window (D3, D7, D15, D30, D45), show:
-# - Eligible: users installed >= N days ago (had enough time)
-# - Converted within N days: users with t2p <= N
-# - Rate
+# Same eligible pool (all evaluable users), cumulative converted within D days
+# D30 is superset of D15, which is superset of D7, which is superset of D3
 dday_windows = [3, 7, 15, 30, 45]
+dday_pool = [u for u in users.values() if u['install_time'] and u['trial_expired']]
+dday_pool_size = len(dday_pool)
 dday_data = []
 for window in dday_windows:
-    eligible = [u for u in users.values() if u['install_time'] and (TODAY - u['install_time']).days >= window]
-    converted_in_window = [u for u in eligible if u['is_converted'] and u['trial_to_paid'] is not None and u['trial_to_paid'] <= window]
-    n_elig = len(eligible)
-    n_conv_w = len(converted_in_window)
-    rate = n_conv_w * 100 / max(1, n_elig)
-    dday_data.append({'window': window, 'eligible': n_elig, 'converted': n_conv_w, 'rate': rate})
-    print(f"  D{window}: {n_conv_w}/{n_elig} = {rate:.1f}%")
+    converted_in_window = sum(1 for u in dday_pool if u['is_converted'] and u['trial_to_paid'] is not None and u['trial_to_paid'] <= window)
+    rate = converted_in_window * 100 / max(1, dday_pool_size)
+    not_yet = sum(1 for u in dday_pool if u['install_time'] and (TODAY - u['install_time']).days < window)
+    dday_data.append({'window': window, 'total': dday_pool_size, 'converted': converted_in_window, 'rate': rate, 'not_yet': not_yet})
+    print(f"  D{window}: {converted_in_window}/{dday_pool_size} = {rate:.1f}% ({not_yet} not yet eligible)")
 
 dday_tbl = ""
 for dd in dday_data:
     clr = "#27AE60" if dd['rate'] >= 70 else "#F39C12" if dd['rate'] >= 40 else "#E74C3C"
-    lbl = f"D{dd['window']} (within {dd['window']} days)"
-    dday_tbl += f"<tr><td><b>{lbl}</b></td><td>{dd['eligible']}</td><td>{dd['converted']}</td><td style='color:{clr}'><b>{dd['rate']:.1f}%</b></td><td>{dd['eligible'] - dd['converted']}</td></tr>"
+    lbl = f"Within {dd['window']} Days"
+    remaining = dd['total'] - dd['converted']
+    note = f" <small style='color:#888'>({dd['not_yet']} installed &lt;{dd['window']}d ago)</small>" if dd['not_yet'] > 0 else ""
+    dday_tbl += f"<tr><td><b>{lbl}</b></td><td>{dd['total']}</td><td style='color:#27AE60'><b>{dd['converted']}</b></td><td style='color:{clr}'><b>{dd['rate']:.1f}%</b></td><td>{remaining}{note}</td></tr>"
 
 # Month-wise install & conversion (newest first)
 month_data = OrderedDict()
@@ -1619,8 +1619,8 @@ The bar chart shows <b>how quickly</b> users convert after installing — most c
 </div>
 <div class="box" id="dday-table-box">
 <h4 style="color:#27AE60;margin-bottom:8px;font-size:14px">Conversion Retention by Time Window</h4>
-<p style="color:#888;font-size:11px;margin-bottom:8px">Users who converted within D days of install. Eligible = installed at least D days ago. <b style="color:#4ECDC4">When filtered by date, ALL future conversions are counted</b> (e.g., Jan install converting in Feb still counts).</p>
-<table><tr><th>Window</th><th>Eligible Users</th><th>Converted</th><th>Conversion Rate</th><th>Not Converted</th></tr>{dday_tbl}</table>
+<p style="color:#888;font-size:11px;margin-bottom:8px">Same user pool across all rows (evaluable users). Each row shows how many converted <b>within</b> that many days of install. D30 includes everyone from D7 + more. <b style="color:#4ECDC4">When date filtered, ALL future conversions still count.</b></p>
+<table><tr><th>Window</th><th>Total Evaluable</th><th>Converted</th><th>Conversion Rate</th><th>Not Yet Converted</th></tr>{dday_tbl}</table>
 </div>
 <div class="box"><div id="c-c2"></div></div>
 <div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise Installs &amp; Conversion (Newest First)</h4>
@@ -1901,18 +1901,21 @@ function applyDateFilter(){{
   var mtTbl=document.querySelector("#t-conv table");
   if(mtTbl)mtTbl.innerHTML=mtHtml;
 
-  /* D-day conversion retention table */
+  /* D-day conversion retention table — same pool, cumulative */
   var ddWindows=[3,7,15,30,45];
+  var ddPool=fu.filter(function(u){{return u.te}});
+  var ddTotal=ddPool.length;
   var ddHtml="<h4 style='color:#27AE60;margin-bottom:8px;font-size:14px'>Conversion Retention by Time Window</h4>";
-  ddHtml+="<p style='color:#888;font-size:11px;margin-bottom:8px'>Users who converted within D days of install. Eligible = installed at least D days ago. <b style='color:#4ECDC4'>ALL future conversions counted</b> regardless of date filter.</p>";
-  ddHtml+="<table><tr><th>Window</th><th>Eligible Users</th><th>Converted</th><th>Conversion Rate</th><th>Not Converted</th></tr>";
+  ddHtml+="<p style='color:#888;font-size:11px;margin-bottom:8px'>Same user pool across all rows (evaluable users). Each row shows how many converted <b>within</b> that many days of install. D30 includes everyone from D7 + more. <b style='color:#4ECDC4'>ALL future conversions counted.</b></p>";
+  ddHtml+="<table><tr><th>Window</th><th>Total Evaluable</th><th>Converted</th><th>Conversion Rate</th><th>Not Yet Converted</th></tr>";
   ddWindows.forEach(function(w){{
-    var elig=fu.filter(function(u){{return u.dsi!==null && u.dsi>=w}});
-    var convW=elig.filter(function(u){{return u.c && u.t2p!==null && u.t2p<=w}});
-    var nE=elig.length, nC=convW.length;
-    var rate=nE>0?(nC*100/nE):0;
+    var convW=ddPool.filter(function(u){{return u.c && u.t2p!==null && u.t2p<=w}}).length;
+    var rate=ddTotal>0?(convW*100/ddTotal):0;
     var clr=rate>=70?"#27AE60":rate>=40?"#F39C12":"#E74C3C";
-    ddHtml+="<tr><td><b>D"+w+" (within "+w+" days)</b></td><td>"+nE+"</td><td>"+nC+"</td><td style='color:"+clr+"'><b>"+rate.toFixed(1)+"%</b></td><td>"+(nE-nC)+"</td></tr>";
+    var notYet=ddPool.filter(function(u){{return u.dsi!==null && u.dsi<w}}).length;
+    var remaining=ddTotal-convW;
+    var note=notYet>0?" <small style='color:#888'>("+notYet+" installed &lt;"+w+"d ago)</small>":"";
+    ddHtml+="<tr><td><b>Within "+w+" Days</b></td><td>"+ddTotal+"</td><td style='color:#27AE60'><b>"+convW+"</b></td><td style='color:"+clr+"'><b>"+rate.toFixed(1)+"%</b></td><td>"+remaining+note+"</td></tr>";
   }});
   ddHtml+="</table>";
   var ddBox=document.getElementById("dday-table-box");
