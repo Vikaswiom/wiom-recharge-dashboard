@@ -296,6 +296,10 @@ for uid in all_uids:
     r_day = None
     if not is_converted and trial_expired and trial_expiry:
         r_day = (TODAY - trial_expiry).days
+        # R15+ non-converted users are considered churned
+        if r_day > 15:
+            is_churned = True
+            retention_status = 'churned'
 
     users[uid] = {
         'uid': uid,
@@ -1420,6 +1424,28 @@ iv_html = "".join(f'<div class="hyp" style="border-color:#FF6B6B"><span style="c
 # User-level data for client-side date filtering
 user_data_for_filter = []
 for u in users.values():
+    # Determine segment
+    if not u['is_converted']:
+        _seg = 'Trial Active' if u['trial_active'] else 'Never Converted'
+    elif u['max_paid_recharge'] >= 4:
+        _seg = 'Power Users (4+ paid)'
+    elif u['max_paid_recharge'] >= 2:
+        _seg = 'Mid Retention (2-3 paid)'
+    elif u['plan_active']:
+        _seg = 'Active - Not Yet Eligible'
+    else:
+        _seg = 'One-Time Paid'
+    # Non-converted segment for R-day
+    _nc_seg = None
+    if not u['is_converted'] and u['trial_expired'] and u['r_day'] is not None:
+        if u['r_day'] <= 3: _nc_seg = 'Fresh Expired (0-3 days)'
+        elif u['r_day'] <= 7: _nc_seg = 'Warm (4-7 days)'
+        elif u['r_day'] <= 15: _nc_seg = 'Cold (8-15 days)'
+        else: _nc_seg = 'Dead (>15 days)'
+    # Days since last plan expired for churned
+    _dse = None
+    if u['is_churned'] and u['last_end']:
+        _dse = (TODAY - u['last_end']).days
     ud = {
         'd': u['install_time'].strftime('%Y-%m-%d') if u['install_time'] else None,
         'c': 1 if u['is_converted'] else 0,
@@ -1431,6 +1457,13 @@ for u in users.values():
         'pa': 1 if u['plan_active'] else 0,
         'mr': u['max_paid_recharge'],
         'rd': u['r_day'],
+        'seg': _seg,
+        'ncs': _nc_seg,
+        'dse': _dse,
+        'ad': round(u['avg_duration'], 1),
+        'mg': round(u['median_gap'], 1) if u['median_gap'] is not None else None,
+        'lt': round(u['lifetime_days'], 1) if u['lifetime_days'] is not None else None,
+        'tpd': u['total_plan_days'],
     }
     user_data_for_filter.append(ud)
 USER_DATA_JSON = json.dumps(user_data_for_filter)
@@ -1542,7 +1575,7 @@ function refreshDashboard(btn){{
 </div>
 
 <div class="tc active" id="t-conv">
-<div class="ins"><b>Trial-to-Paid Conversion:</b> <b class="g">{conv_rate:.1f}%</b> of {n_evaluable} evaluable users converted.
+<div class="ins" id="conv-summary"><b>Trial-to-Paid Conversion:</b> <b class="g">{conv_rate:.1f}%</b> of {n_evaluable} evaluable users converted.
 <b class="r">{n_never_converted}</b> never converted (trial expired).
 <span class="badge badge-b">{n_trial_active} still in trial (excluded from rate)</span></div>
 <div class="box" style="padding:16px;border-left:3px solid #4ECDC4">
@@ -1554,12 +1587,12 @@ function refreshDashboard(btn){{
 The bar chart shows <b>how quickly</b> users convert after installing — most convert within 48 hours.<br>
 <b>Tip:</b> Send a push notification on the day trial expires — this is the highest conversion window.
 </p></div>
-<div class="stat-row">
-<div class="stat-card"><div class="sv" style="color:#4ECDC4">{total_users}</div><div class="sl">Total Installed</div></div>
-<div class="stat-card"><div class="sv" style="color:#27AE60">{n_converted}</div><div class="sl">Converted to Paid</div></div>
-<div class="stat-card"><div class="sv" style="color:#E74C3C">{n_never_converted}</div><div class="sl">Never Converted</div></div>
-<div class="stat-card"><div class="sv" style="color:#FFEAA7">{n_trial_active}</div><div class="sl">Still in Trial</div></div>
-<div class="stat-card"><div class="sv" style="color:#BB8FCE">{n_evaluable}</div><div class="sl">Evaluable (Trial Expired)</div></div>
+<div class="stat-row" id="conv-stats">
+<div class="stat-card"><div class="sv" style="color:#4ECDC4" id="sc-total">{total_users}</div><div class="sl">Total Installed</div></div>
+<div class="stat-card"><div class="sv" style="color:#27AE60" id="sc-conv">{n_converted}</div><div class="sl">Converted to Paid</div></div>
+<div class="stat-card"><div class="sv" style="color:#E74C3C" id="sc-nc">{n_never_converted}</div><div class="sl">Never Converted</div></div>
+<div class="stat-card"><div class="sv" style="color:#FFEAA7" id="sc-ta">{n_trial_active}</div><div class="sl">Still in Trial</div></div>
+<div class="stat-card"><div class="sv" style="color:#BB8FCE" id="sc-eval">{n_evaluable}</div><div class="sl">Evaluable (Trial Expired)</div></div>
 </div>
 <div class="box"><div id="c-c2"></div></div>
 <div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise Installs &amp; Conversion (Newest First)</h4>
@@ -1586,7 +1619,7 @@ The month-wise chart shows if plan preferences are changing over time.<br>
 </div>
 
 <div class="tc" id="t-segments">
-<div class="ins"><b>User Segments:</b> <b class="r">{n_churned}</b> churned (plan expired, not recharged till date).</div>
+<div class="ins" id="seg-summary"><b>User Segments:</b> <b class="r">{n_churned}</b> churned (plan expired, not recharged till date, or R15+ non-converted).</div>
 <div class="box" style="padding:16px;border-left:3px solid #E74C3C">
 <h4 style="color:#E74C3C;margin-bottom:10px;font-size:13px">What does this mean?</h4>
 <p style="color:#ccc;font-size:12px;line-height:1.8">
@@ -1596,11 +1629,11 @@ The month-wise chart shows if plan preferences are changing over time.<br>
 The "Days Since Expired" table shows how long ago churned users' plans expired — <b>recent churns (0-3 days)</b> are the easiest to win back.<br>
 <b>Tip:</b> Target users whose plan expired 1-3 days ago with a "Welcome back" offer — they're most likely to return.
 </p></div>
-<div class="box"><table><tr><th>Segment</th><th>Users</th><th>%</th><th>Avg Duration</th><th>Med Gap</th><th>Avg Lifetime</th><th>Avg LTV</th><th>Churn%</th></tr>{seg_tbl}</table></div>
-<h4 style="color:#E74C3C;margin:16px 0 8px;font-size:15px">Churned Users Distribution ({n_churned} users)</h4>
+<div class="box" id="seg-table-box"><table><tr><th>Segment</th><th>Users</th><th>%</th><th>Avg Duration</th><th>Med Gap</th><th>Avg Lifetime</th><th>Avg LTV</th><th>Churn%</th></tr>{seg_tbl}</table></div>
+<h4 style="color:#E74C3C;margin:16px 0 8px;font-size:15px" id="churn-heading">Churned Users Distribution ({n_churned} users)</h4>
 <div class="ins" style="border-color:#E74C3C"><b style="color:#E74C3C">Churned = Plan expired & not recharged till date.</b> Distribution by days since last plan expired:</div>
 <div class="g2"><div class="box"><div id="c-c28"></div></div><div class="box"><div id="c-c29"></div></div></div>
-<div class="box"><table><tr><th>Days Since Expired</th><th>Users</th><th>%</th><th>Avg Plan Duration</th></tr>{churn_dist_tbl}</table></div>
+<div class="box" id="churn-dist-table-box"><table><tr><th>Days Since Expired</th><th>Users</th><th>%</th><th>Avg Plan Duration</th></tr>{churn_dist_tbl}</table></div>
 </div>
 
 <div class="tc" id="t-daily">
@@ -1655,7 +1688,7 @@ This tracks <b>how users change their plan</b> from one recharge to the next.<br
 </div>
 
 <div class="tc" id="t-nonconv">
-<div class="ins"><b>Non-Converted:</b> <b class="r">{n_never_converted}</b> trial-expired, never purchased.
+<div class="ins" id="nc-summary"><b>Non-Converted:</b> <b class="r">{n_never_converted}</b> trial-expired, never purchased.
 <span class="badge badge-b">{n_trial_active} still in trial</span></div>
 <div class="box" style="padding:16px;border-left:3px solid #BB8FCE">
 <h4 style="color:#BB8FCE;margin-bottom:10px;font-size:13px">What does this mean?</h4>
@@ -1666,7 +1699,7 @@ The segments table groups them by how long ago their trial expired — recent on
 "2+ times" means users who bought that plan at least twice — these are <b>repeat buyers</b> and your most loyal users.<br>
 <b>Tip:</b> Send a special discount offer to non-converted users within 3 days of trial expiry — after 7 days, they're unlikely to return.
 </p></div>
-<div class="box"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">Non-Converted Segments (by days since trial expired)</h4>
+<div class="box" id="nc-seg-table-box"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">Non-Converted Segments (by days since trial expired)</h4>
 <table><tr><th>Segment</th><th>Users</th><th>%</th></tr>{nc_seg_tbl}</table></div>
 <h4 style="color:#4ECDC4;margin:16px 0 8px;font-size:15px">Plan-Wise Purchase Frequency</h4>
 <div class="ins" style="border-color:#FFEAA7"><b style="color:#FFEAA7">How many users purchased each plan type X+ times in their lifetime (converted users only):</b></div>
@@ -1675,7 +1708,7 @@ The segments table groups them by how long ago their trial expired — recent on
 </div>
 
 <div class="tc" id="t-rday">
-<div class="ins"><b>R-Day Report:</b> <b class="r">{total_rday}</b> non-converted with expired trial.
+<div class="ins" id="rday-summary"><b>R-Day Report:</b> <b class="r">{total_rday}</b> non-converted with expired trial.
 Peak: <b class="r">R{peak_rday}</b> ({peak_rday_count}). Bucket: <b class="y">{highest_risk_bucket}</b> ({highest_risk_count}).</div>
 <div class="box" style="padding:16px;border-left:3px solid #FF6B6B">
 <h4 style="color:#FF6B6B;margin-bottom:10px;font-size:13px">What does this mean?</h4>
@@ -1692,7 +1725,7 @@ Peak: <b class="r">R{peak_rday}</b> ({peak_rday_count}). Bucket: <b class="y">{h
 <h4 style="color:#FF6B6B;margin:12px 0 8px;font-size:13px">Suggested Actions</h4>{iv_html}
 </div>
 <div class="box"><div id="c-c26"></div></div>
-<div class="box" style="max-height:420px;overflow-y:auto"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">R-Day Detail (R0 to R15, then R15+ combined)</h4>
+<div class="box" style="max-height:420px;overflow-y:auto" id="rday-detail-box"><h4 style="color:#E74C3C;margin-bottom:8px;font-size:13px">R-Day Detail (R0 to R15, then R15+ combined)</h4>
 <table><tr><th>R-Day</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{rday_detail_tbl}</table></div>
 </div>
 
@@ -1741,15 +1774,40 @@ function applyDateFilter(){{
   if(!f||!t)return;
   var fu=UD.filter(function(u){{return u.d && u.d>=f && u.d<=t}});
   document.getElementById("df-info").textContent="Filtered: "+f+" to "+t+" ("+fu.length+" users)";
+  var _mn=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function _mlbl(mk){{var p=mk.split("-");return _mn[parseInt(p[1])]+" "+p[0]}}
 
-  /* KPIs */
-  var tot=fu.length, conv=0, nc=0, ta=0, te=0, t2ps=[];
-  var fpDurs={{}};
+  /* === COMPUTE ALL METRICS === */
+  var tot=fu.length, conv=0, nc=0, ta=0, churned=0, t2ps=[], fpDurs={{}};
+  var segCounts={{}}, segChurn={{}}, segAd={{}}, segMg={{}}, segLt={{}}, segTpd={{}};
+  var ncSegs={{}};
+  var rdVals=[];
+  var churnByDse={{"0-3 days ago":[],"4-7 days ago":[],"8-15 days ago":[],"16-30 days ago":[]}};
   fu.forEach(function(u){{
     if(u.c){{conv++;if(u.t2p!==null)t2ps.push(u.t2p)}}
     if(u.ta)ta++;
     if(u.te)nc++;
-    if(u.c && u.fp>0){{var k=u.fp;fpDurs[k]=(fpDurs[k]||0)+1}}
+    if(u.ch)churned++;
+    if(u.c && u.fp>0){{fpDurs[u.fp]=(fpDurs[u.fp]||0)+1}}
+    /* segments */
+    var s=u.seg; segCounts[s]=(segCounts[s]||0)+1;
+    if(u.ch)segChurn[s]=(segChurn[s]||0)+1;
+    if(!segAd[s]){{segAd[s]=[];segMg[s]=[];segLt[s]=[];segTpd[s]=[]}}
+    if(u.ad>0)segAd[s].push(u.ad);
+    if(u.mg!==null)segMg[s].push(u.mg);
+    if(u.lt!==null&&u.lt>0)segLt[s].push(u.lt);
+    segTpd[s].push(u.tpd);
+    /* non-converted segments */
+    if(u.ncs){{ncSegs[u.ncs]=(ncSegs[u.ncs]||0)+1}}
+    /* R-day */
+    if(u.rd!==null&&u.rd!==undefined&&u.te)rdVals.push(u.rd);
+    /* churn distribution by days since expired */
+    if(u.ch&&u.dse!==null){{
+      if(u.dse<=3)churnByDse["0-3 days ago"].push(u);
+      else if(u.dse<=7)churnByDse["4-7 days ago"].push(u);
+      else if(u.dse<=15)churnByDse["8-15 days ago"].push(u);
+      else churnByDse["16-30 days ago"].push(u);
+    }}
   }});
   var evaluable=conv+nc;
   var crate=evaluable>0?(conv*100/evaluable):0;
@@ -1758,13 +1816,22 @@ function applyDateFilter(){{
   var n28=fpDurs[28]||0;
   var pct28=conv>0?(n28*100/conv):0;
 
+  /* === TAB 0: KPIs === */
   document.getElementById("kpi-total").textContent=tot;
   document.getElementById("kpi-conv").textContent=crate.toFixed(1)+"%";
   document.getElementById("kpi-t2p").textContent=medT2p.toFixed(1)+"h";
   document.getElementById("kpi-nc").textContent=nc;
   document.getElementById("kpi-28d").textContent=pct28.toFixed(0)+"%";
 
-  /* Rebuild c2: conversion time buckets */
+  /* === TAB 1: CONVERSION === */
+  document.getElementById("conv-summary").innerHTML='<b>Trial-to-Paid Conversion:</b> <b class="g">'+crate.toFixed(1)+'%</b> of '+evaluable+' evaluable users converted. <b class="r">'+nc+'</b> never converted (trial expired). <span class="badge badge-b">'+ta+' still in trial (excluded from rate)</span>';
+  document.getElementById("sc-total").textContent=tot;
+  document.getElementById("sc-conv").textContent=conv;
+  document.getElementById("sc-nc").textContent=nc;
+  document.getElementById("sc-ta").textContent=ta;
+  document.getElementById("sc-eval").textContent=evaluable;
+
+  /* c2: conversion time buckets */
   var bkts={{"< 24 Hours":0,"24-48 Hours":0,"2-7 Days":0,"7-14 Days":0,"14+ Days":0}};
   var bktOrder=["< 24 Hours","24-48 Hours","2-7 Days","7-14 Days","14+ Days"];
   var bktColors=["#27AE60","#4ECDC4","#FFEAA7","#F39C12","#E74C3C"];
@@ -1778,44 +1845,12 @@ function applyDateFilter(){{
     else bkts["14+ Days"]++;
   }});
   var bV=bktOrder.map(function(k){{return bkts[k]}});
-  var bT=bV.map(function(v){{var p=t2ps.length>0?(v*100/t2ps.length).toFixed(1):"0.0";return v+" ("+p+"%)" }});
+  var bT=bV.map(function(v){{var p=t2ps.length>0?(v*100/t2ps.length).toFixed(1):"0.0";return v+" ("+p+"%)"}});
   Plotly.react("c-c2",[{{type:"bar",x:bktOrder,y:bV,marker:{{color:bktColors}},text:bT,textposition:"outside",textfont:{{color:"white",size:11}}}}],
     {{title:{{text:"Conversion Time Buckets (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
     xaxis:{{tickfont:{{color:"#ccc"}},gridcolor:"#1a1a3e"}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
 
-  /* Rebuild c4: first plan bar (overall) */
-  var fpKeys=Object.keys(fpDurs).map(Number).sort(function(a,b){{return a-b}});
-  var fpL=fpKeys.map(function(k){{return k+"-Day"}});
-  var fpV=fpKeys.map(function(k){{return fpDurs[k]}});
-  var fpTotal=fpV.reduce(function(a,b){{return a+b}},0);
-  var fpT=fpV.map(function(v){{var p=fpTotal>0?(v*100/fpTotal).toFixed(1):"0";return v+" ("+p+"%)"}});
-  Plotly.react("c-c4",[{{type:"bar",x:fpL,y:fpV,marker:{{color:"#4ECDC4",line:{{color:"#0f0f23",width:1}}}},text:fpT,textposition:"outside",textfont:{{color:"white",size:11}}}}],
-    {{title:{{text:"First Paid Plan Duration (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
-    xaxis:{{title:"Plan Duration",tickfont:{{color:"#ccc"}},categoryorder:"array",categoryarray:fpL}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
-
-  /* Rebuild c5: month-wise plan (grouped bar) */
-  var mpData={{}};
-  var allDurs={{}};
-  fu.forEach(function(u){{
-    if(!u.c||!u.fp||u.fp<=0||!u.d)return;
-    var mk=u.d.substring(0,7);
-    if(!mpData[mk])mpData[mk]={{}};
-    mpData[mk][u.fp]=(mpData[mk][u.fp]||0)+1;
-    allDurs[u.fp]=1;
-  }});
-  var mks=Object.keys(mpData).sort().reverse();
-  var mkLabels=mks.map(function(m){{var p=m.split("-");var mn=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return mn[parseInt(p[1])]+" "+p[0]}});
-  var durKeys=Object.keys(allDurs).map(Number).sort(function(a,b){{return a-b}});
-  var barColors=["#E74C3C","#9B59B6","#F39C12","#FFEAA7","#4ECDC4","#27AE60","#85C1E9","#DDA0DD","#FF6B6B","#3498DB"];
-  var c5traces=durKeys.map(function(d,i){{
-    var vals=mks.map(function(mk){{return (mpData[mk][d]||0)}});
-    return {{type:"bar",name:d+"-Day",x:mkLabels,y:vals,marker:{{color:barColors[i%barColors.length]}}}};
-  }});
-  Plotly.react("c-c5",c5traces,
-    {{title:{{text:"Month-Wise First Plan (Filtered)",font:{{size:18,color:"white"}}}},barmode:"group",paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
-    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:450,legend:{{font:{{color:"#ccc"}}}}}},cfg);
-
-  /* Rebuild month-wise conversion table */
+  /* month-wise conversion table */
   var mConv={{}};
   fu.forEach(function(u){{
     if(!u.d)return;
@@ -1827,68 +1862,169 @@ function applyDateFilter(){{
     else if(u.te)mConv[mk].nc++;
   }});
   var mConvKeys=Object.keys(mConv).sort().reverse();
-  var mtHtml="";
+  var mtHtml="<tr><th>Month</th><th>Installs</th><th>Converted</th><th>Never Converted</th><th>In Trial</th><th>Evaluable</th><th>Conversion Rate</th></tr>";
   mConvKeys.forEach(function(mk){{
-    var d=mConv[mk];
-    var ev=d.conv+d.nc;
+    var d=mConv[mk]; var ev=d.conv+d.nc;
     var cr=ev>0?(d.conv*100/ev).toFixed(1):"N/A";
     var clr=parseFloat(cr)>=50?"#27AE60":parseFloat(cr)>=30?"#F39C12":"#E74C3C";
     if(cr==="N/A")clr="#888";
-    var p=mk.split("-");var mn=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    var lbl=mn[parseInt(p[1])]+" "+p[0];
-    mtHtml+="<tr><td>"+lbl+"</td><td>"+d.inst+"</td><td>"+d.conv+"</td><td>"+d.nc+"</td><td>"+d.ta+"</td><td>"+ev+"</td><td style='color:"+clr+"'><b>"+cr+"%</b></td></tr>";
+    mtHtml+="<tr><td>"+_mlbl(mk)+"</td><td>"+d.inst+"</td><td>"+d.conv+"</td><td>"+d.nc+"</td><td>"+d.ta+"</td><td>"+ev+"</td><td style='color:"+clr+"'><b>"+cr+"%</b></td></tr>";
   }});
   var mtTbl=document.querySelector("#t-conv table");
-  if(mtTbl){{var tb=mtTbl.querySelector("tbody")||mtTbl;var hdr=mtTbl.querySelector("tr");tb.innerHTML="";if(hdr)tb.appendChild(hdr);tb.innerHTML+=mtHtml}}
+  if(mtTbl)mtTbl.innerHTML=mtHtml;
 
-  /* Rebuild month-wise plan table */
+  /* === TAB 2: FIRST PLAN === */
+  var fpKeys=Object.keys(fpDurs).map(Number).sort(function(a,b){{return a-b}});
+  var fpL=fpKeys.map(function(k){{return k+"-Day"}});
+  var fpV=fpKeys.map(function(k){{return fpDurs[k]}});
+  var fpTotal=fpV.reduce(function(a,b){{return a+b}},0);
+  var fpT=fpV.map(function(v){{var p=fpTotal>0?(v*100/fpTotal).toFixed(1):"0";return v+" ("+p+"%)"}});
+  Plotly.react("c-c4",[{{type:"bar",x:fpL,y:fpV,marker:{{color:"#4ECDC4",line:{{color:"#0f0f23",width:1}}}},text:fpT,textposition:"outside",textfont:{{color:"white",size:11}}}}],
+    {{title:{{text:"First Paid Plan Duration (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
+    xaxis:{{title:"Plan Duration",tickfont:{{color:"#ccc"}},categoryorder:"array",categoryarray:fpL}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
+
+  /* c5: month-wise plan (grouped bar) */
+  var mpData={{}};var allDurs={{}};
+  fu.forEach(function(u){{
+    if(!u.c||!u.fp||u.fp<=0||!u.d)return;
+    var mk=u.d.substring(0,7);
+    if(!mpData[mk])mpData[mk]={{}};
+    mpData[mk][u.fp]=(mpData[mk][u.fp]||0)+1;
+    allDurs[u.fp]=1;
+  }});
+  var mks=Object.keys(mpData).sort().reverse();
+  var mkLabels=mks.map(function(m){{return _mlbl(m)}});
+  var durKeys=Object.keys(allDurs).map(Number).sort(function(a,b){{return a-b}});
+  var barColors=["#E74C3C","#9B59B6","#F39C12","#FFEAA7","#4ECDC4","#27AE60","#85C1E9","#DDA0DD","#FF6B6B","#3498DB"];
+  var c5traces=durKeys.map(function(d,i){{
+    var vals=mks.map(function(mk){{return (mpData[mk][d]||0)}});
+    return {{type:"bar",name:d+"-Day",x:mkLabels,y:vals,marker:{{color:barColors[i%barColors.length]}}}};
+  }});
+  Plotly.react("c-c5",c5traces,
+    {{title:{{text:"Month-Wise First Plan (Filtered)",font:{{size:18,color:"white"}}}},barmode:"group",paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:450,legend:{{font:{{color:"#ccc"}}}}}},cfg);
+
+  /* month-wise plan table */
   var mpTbl=document.querySelector("#t-firstplan table");
   if(mpTbl){{
-    var durH="<th>Month</th>"+durKeys.map(function(d){{return "<th>"+d+"-Day</th>"}}).join("")+"<th>Total</th>";
+    var durH="<tr><th>Month</th>"+durKeys.map(function(d){{return "<th>"+d+"-Day</th>"}}).join("")+"<th>Total</th></tr>";
     var mpRows="";
     mks.forEach(function(mk){{
-      var p=mk.split("-");var mn=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-      var lbl=mn[parseInt(p[1])]+" "+p[0];
       var total=0;
       var cells=durKeys.map(function(d){{var v=mpData[mk][d]||0;total+=v;return "<td>"+v+"</td>"}}).join("");
-      mpRows+="<tr><td>"+lbl+"</td>"+cells+"<td><b>"+total+"</b></td></tr>";
+      mpRows+="<tr><td>"+_mlbl(mk)+"</td>"+cells+"<td><b>"+total+"</b></td></tr>";
     }});
-    var tb=mpTbl.querySelector("tbody")||mpTbl;
-    tb.innerHTML="<tr>"+durH+"</tr>"+mpRows;
+    mpTbl.innerHTML=durH+mpRows;
   }}
 
-  /* Rebuild segments charts (c28, c29) with filtered data */
-  var churnDist={{"1-time":0,"2-3 times":0,"4-7 times":0,"8+ times":0}};
-  var churnOrder=["1-time","2-3 times","4-7 times","8+ times"];
+  /* === TAB 3: SEGMENTS === */
+  document.getElementById("seg-summary").innerHTML='<b>User Segments:</b> <b class="r">'+churned+'</b> churned (plan expired, not recharged, or R15+ non-converted).';
+  var segOrder=["Power Users (4+ paid)","Mid Retention (2-3 paid)","One-Time Paid","Active - Not Yet Eligible","Never Converted","Trial Active"];
+  function _avg(a){{if(!a.length)return 0;var s=0;a.forEach(function(v){{s+=v}});return s/a.length}}
+  function _med(a){{if(!a.length)return 0;var b=a.slice().sort(function(x,y){{return x-y}});return b[Math.floor(b.length/2)]}}
+  var segHtml="<tr><th>Segment</th><th>Users</th><th>%</th><th>Avg Duration</th><th>Med Gap</th><th>Avg Lifetime</th><th>Avg LTV</th><th>Churn%</th></tr>";
+  segOrder.forEach(function(s){{
+    var cnt=segCounts[s]||0;if(!cnt)return;
+    var pct=(cnt*100/Math.max(1,tot)).toFixed(1);
+    var ad=_avg(segAd[s]||[]).toFixed(1);
+    var mg=_med(segMg[s]||[]).toFixed(1);
+    var lt=_avg(segLt[s]||[]).toFixed(1);
+    var ltv=_avg(segTpd[s]||[]).toFixed(1);
+    var ch=segChurn[s]||0;
+    var chp=(ch*100/Math.max(1,cnt)).toFixed(1);
+    segHtml+="<tr><td><b>"+s+"</b></td><td>"+cnt+"</td><td>"+pct+"%</td><td>"+ad+"d</td><td>"+mg+"d</td><td>"+lt+"d</td><td>"+ltv+"d</td><td style='color:#E74C3C'>"+chp+"%</td></tr>";
+  }});
+  var stb=document.querySelector("#seg-table-box");
+  if(stb)stb.innerHTML="<table>"+segHtml+"</table>";
+
+  document.getElementById("churn-heading").textContent="Churned Users Distribution ("+churned+" users)";
+
+  /* c28: churned by recharge count */
+  var churnRech={{"1-time":0,"2-3 times":0,"4-7 times":0,"8+ times":0}};
+  var churnRechOrder=["1-time","2-3 times","4-7 times","8+ times"];
   fu.forEach(function(u){{
     if(!u.ch)return;
     var mr=u.mr||0;
-    if(mr<=1)churnDist["1-time"]++;
-    else if(mr<=3)churnDist["2-3 times"]++;
-    else if(mr<=7)churnDist["4-7 times"]++;
-    else churnDist["8+ times"]++;
+    if(mr<=1)churnRech["1-time"]++;
+    else if(mr<=3)churnRech["2-3 times"]++;
+    else if(mr<=7)churnRech["4-7 times"]++;
+    else churnRech["8+ times"]++;
   }});
-  var cdV=churnOrder.map(function(k){{return churnDist[k]}});
-  var cdColors=["#E74C3C","#F39C12","#FFEAA7","#27AE60"];
-  Plotly.react("c-c28",[{{type:"bar",x:churnOrder,y:cdV,marker:{{color:cdColors}},text:cdV.map(String),textposition:"outside",textfont:{{color:"white",size:12}}}}],
+  var cdV=churnRechOrder.map(function(k){{return churnRech[k]}});
+  Plotly.react("c-c28",[{{type:"bar",x:churnRechOrder,y:cdV,marker:{{color:["#E74C3C","#F39C12","#FFEAA7","#27AE60"]}},text:cdV.map(String),textposition:"outside",textfont:{{color:"white",size:12}}}}],
     {{title:{{text:"Churned Users by Recharge Count (Filtered)",font:{{size:16,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
     xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:400}},cfg);
 
-  /* Rebuild R-Day chart (c26) */
+  /* churn distribution table */
+  var cdTbl="<table><tr><th>Days Since Expired</th><th>Users</th><th>%</th><th>Avg Plan Duration</th></tr>";
+  var cdOrder=["0-3 days ago","4-7 days ago","8-15 days ago","16-30 days ago"];
+  cdOrder.forEach(function(seg){{
+    var grp=churnByDse[seg]||[];
+    var cn=grp.length;
+    var pn=(cn*100/Math.max(1,churned)).toFixed(1);
+    var ads=grp.filter(function(u){{return u.ad>0}}).map(function(u){{return u.ad}});
+    var avgD=ads.length>0?_avg(ads).toFixed(1):"0";
+    cdTbl+="<tr><td><b>"+seg+"</b></td><td>"+cn+"</td><td>"+pn+"%</td><td>"+avgD+"d</td></tr>";
+  }});
+  cdTbl+="</table>";
+  var cdBox=document.getElementById("churn-dist-table-box");
+  if(cdBox)cdBox.innerHTML=cdTbl;
+
+  /* === TAB 6: NON-CONVERTED === */
+  document.getElementById("nc-summary").innerHTML='<b>Non-Converted:</b> <b class="r">'+nc+'</b> trial-expired, never purchased. <span class="badge badge-b">'+ta+' still in trial</span>';
+  var ncSegOrder=["Fresh Expired (0-3 days)","Warm (4-7 days)","Cold (8-15 days)","Dead (>15 days)"];
+  var ncTotal=nc;
+  var ncTbl="<h4 style='color:#E74C3C;margin-bottom:8px;font-size:13px'>Non-Converted Segments (by days since trial expired)</h4><table><tr><th>Segment</th><th>Users</th><th>%</th></tr>";
+  ncSegOrder.forEach(function(s){{
+    var cn=ncSegs[s]||0;
+    var pn=(cn*100/Math.max(1,ncTotal)).toFixed(1);
+    ncTbl+="<tr><td><b>"+s+"</b></td><td>"+cn+"</td><td>"+pn+"%</td></tr>";
+  }});
+  ncTbl+="</table>";
+  var ncBox=document.getElementById("nc-seg-table-box");
+  if(ncBox)ncBox.innerHTML=ncTbl;
+
+  /* === TAB 7: R-DAY === */
   var rBkts={{"R0 (<24h)":0,"R1-R7":0,"R8-R15":0,"R15+":0}};
   var rOrder=["R0 (<24h)","R1-R7","R8-R15","R15+"];
-  fu.forEach(function(u){{
-    if(u.rd===null||u.rd===undefined||!u.te)return;
-    if(u.rd===0)rBkts["R0 (<24h)"]++;
-    else if(u.rd<=7)rBkts["R1-R7"]++;
-    else if(u.rd<=15)rBkts["R8-R15"]++;
+  var rdayDetail={{}};
+  rdVals.forEach(function(rd){{
+    if(rd===0)rBkts["R0 (<24h)"]++;
+    else if(rd<=7)rBkts["R1-R7"]++;
+    else if(rd<=15)rBkts["R8-R15"]++;
     else rBkts["R15+"]++;
+    rdayDetail[rd]=(rdayDetail[rd]||0)+1;
   }});
+  var totalRd=rdVals.length;
+  document.getElementById("rday-summary").innerHTML='<b>R-Day Report:</b> <b class="r">'+totalRd+'</b> non-converted with expired trial.';
+
   var rV=rOrder.map(function(k){{return rBkts[k]}});
-  var rColors=["#4ECDC4","#27AE60","#F39C12","#E74C3C"];
-  Plotly.react("c-c26",[{{type:"bar",x:rOrder,y:rV,marker:{{color:rColors}},text:rV.map(String),textposition:"outside",textfont:{{color:"white",size:12}}}}],
+  Plotly.react("c-c26",[{{type:"bar",x:rOrder,y:rV,marker:{{color:["#4ECDC4","#27AE60","#F39C12","#E74C3C"]}},text:rV.map(String),textposition:"outside",textfont:{{color:"white",size:12}}}}],
     {{title:{{text:"R-Day Risk Buckets (Filtered)",font:{{size:16,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
     xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:400}},cfg);
+
+  /* R-day detail table */
+  var rdKeys=Object.keys(rdayDetail).map(Number).sort(function(a,b){{return a-b}});
+  var rdTbl="<h4 style='color:#E74C3C;margin-bottom:8px;font-size:13px'>R-Day Detail (R0 to R15, then R15+ combined)</h4><table><tr><th>R-Day</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>";
+  var cum=0,r15plus=0;
+  rdKeys.forEach(function(rd){{
+    var cnt=rdayDetail[rd];
+    if(rd>15){{r15plus+=cnt;return}}
+    cum+=cnt;
+    var pr=(cnt*100/Math.max(1,totalRd)).toFixed(1);
+    var cpr=(cum*100/Math.max(1,totalRd)).toFixed(1);
+    var clr=rd===0?"#4ECDC4":rd<=7?"#27AE60":"#F39C12";
+    rdTbl+="<tr><td style='color:"+clr+"'><b>R"+rd+"</b></td><td>"+cnt+"</td><td>"+pr+"%</td><td>"+cum+"</td><td>"+cpr+"%</td></tr>";
+  }});
+  if(r15plus>0){{
+    cum+=r15plus;
+    var pr=(r15plus*100/Math.max(1,totalRd)).toFixed(1);
+    var cpr=(cum*100/Math.max(1,totalRd)).toFixed(1);
+    rdTbl+="<tr><td style='color:#E74C3C'><b>R15+</b></td><td>"+r15plus+"</td><td>"+pr+"%</td><td>"+cum+"</td><td>"+cpr+"%</td></tr>";
+  }}
+  rdTbl+="</table>";
+  var rdBox=document.getElementById("rday-detail-box");
+  if(rdBox)rdBox.innerHTML=rdTbl;
 
   R={{}};
 }}
