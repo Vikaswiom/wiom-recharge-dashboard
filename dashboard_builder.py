@@ -1771,10 +1771,12 @@ var M={{
   nonconv:[["c-c27","c27"]],
   rday:[["c-c26","c26"]]
 }};
-function render(t){{if(R[t])return;var items=M[t];if(!items)return;items.forEach(function(p){{var el=document.getElementById(p[0]);if(el&&C[p[1]])Plotly.newPlot(p[0],C[p[1]].data,C[p[1]].layout,cfg)}});R[t]=true}}
+var _filterActive=false;
+function render(t){{if(R[t])return;var items=M[t];if(!items)return;items.forEach(function(p){{var el=document.getElementById(p[0]);if(el&&C[p[1]])Plotly.newPlot(p[0],C[p[1]].data,C[p[1]].layout,cfg)}});R[t]=true;if(_filterActive)setTimeout(function(){{_reapplyFilter()}},100)}}
 function sw(t){{document.querySelectorAll(".tc").forEach(function(e){{e.classList.remove("active")}});document.querySelectorAll(".tab").forEach(function(e){{e.classList.remove("active")}});document.getElementById("t-"+t).classList.add("active");document.querySelector('[data-t="'+t+'"]').classList.add("active");setTimeout(function(){{render(t)}},50)}}
 document.getElementById("tb").addEventListener("click",function(e){{var t=e.target.getAttribute("data-t");if(t)sw(t)}});
 window.addEventListener("load",function(){{render("conv")}});
+function _reapplyFilter(){{var f=document.getElementById("df-from").value;var t=document.getElementById("df-to").value;if(f&&t&&_filterActive)applyDateFilter()}}
 
 /* --- Date Filter --- */
 var UD={USER_DATA_JSON};
@@ -1800,6 +1802,11 @@ function applyDateFilter(){{
   var f=document.getElementById("df-from").value;
   var t=document.getElementById("df-to").value;
   if(!f||!t)return;
+  _filterActive=true;
+  /* Pre-render all tabs so chart divs are initialized */
+  Object.keys(M).forEach(function(tab){{
+    if(!R[tab]){{var items=M[tab];if(items)items.forEach(function(p){{var el=document.getElementById(p[0]);if(el&&C[p[1]])Plotly.newPlot(p[0],C[p[1]].data,C[p[1]].layout,cfg)}});R[tab]=true}}
+  }});
   var fu=UD.filter(function(u){{return u.d && u.d>=f && u.d<=t}});
   document.getElementById("df-info").textContent="Filtered: "+f+" to "+t+" ("+fu.length+" users)";
   var _mn=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -2073,25 +2080,10 @@ function applyDateFilter(){{
   rdTbl+="</table>";
   var rdBox=document.getElementById("rday-detail-box");
   if(rdBox)rdBox.innerHTML=rdTbl;
-
-  R={{}};
 }}
 
 function resetDateFilter(){{
-  document.getElementById("df-from").value=DF_MIN;
-  document.getElementById("df-to").value=DF_MAX;
-  document.getElementById("df-info").textContent="Showing all data: "+DF_MIN+" to "+DF_MAX;
-  document.getElementById("kpi-total").textContent="{total_users}";
-  document.getElementById("kpi-conv").textContent="{conv_rate:.1f}%";
-  document.getElementById("kpi-t2p").textContent="{median_t2p_h:.1f}h";
-  document.getElementById("kpi-nc").textContent="{n_never_converted}";
-  document.getElementById("kpi-28d").textContent="{pct_28d:.0f}%";
-  /* Re-render original charts */
-  ["c2","c4","c5","c26","c28"].forEach(function(k){{
-    var el=document.getElementById("c-"+k);
-    if(el&&C[k])Plotly.react("c-"+k,C[k].data,C[k].layout,cfg);
-  }});
-  /* Restore original tables - reload page for simplicity */
+  _filterActive=false;
   location.reload();
 }}
 </script></body></html>'''
