@@ -356,6 +356,28 @@ print(f"  Converted to paid: {n_converted} ({conv_rate:.1f}% of evaluable)")
 print(f"  Never converted (trial expired): {n_never_converted}")
 print(f"  Active paid plans: {n_active}, Churned: {n_churned}")
 
+# D-day conversion retention table
+# For each window (D3, D7, D15, D30, D45), show:
+# - Eligible: users installed >= N days ago (had enough time)
+# - Converted within N days: users with t2p <= N
+# - Rate
+dday_windows = [3, 7, 15, 30, 45]
+dday_data = []
+for window in dday_windows:
+    eligible = [u for u in users.values() if u['install_time'] and (TODAY - u['install_time']).days >= window]
+    converted_in_window = [u for u in eligible if u['is_converted'] and u['trial_to_paid'] is not None and u['trial_to_paid'] <= window]
+    n_elig = len(eligible)
+    n_conv_w = len(converted_in_window)
+    rate = n_conv_w * 100 / max(1, n_elig)
+    dday_data.append({'window': window, 'eligible': n_elig, 'converted': n_conv_w, 'rate': rate})
+    print(f"  D{window}: {n_conv_w}/{n_elig} = {rate:.1f}%")
+
+dday_tbl = ""
+for dd in dday_data:
+    clr = "#27AE60" if dd['rate'] >= 70 else "#F39C12" if dd['rate'] >= 40 else "#E74C3C"
+    lbl = f"D{dd['window']} (within {dd['window']} days)"
+    dday_tbl += f"<tr><td><b>{lbl}</b></td><td>{dd['eligible']}</td><td>{dd['converted']}</td><td style='color:{clr}'><b>{dd['rate']:.1f}%</b></td><td>{dd['eligible'] - dd['converted']}</td></tr>"
+
 # Month-wise install & conversion (newest first)
 month_data = OrderedDict()
 for u in users.values():
@@ -1464,6 +1486,7 @@ for u in users.values():
         'mg': round(u['median_gap'], 1) if u['median_gap'] is not None else None,
         'lt': round(u['lifetime_days'], 1) if u['lifetime_days'] is not None else None,
         'tpd': u['total_plan_days'],
+        'dsi': (TODAY - u['install_time']).days if u['install_time'] else None,
     }
     user_data_for_filter.append(ud)
 USER_DATA_JSON = json.dumps(user_data_for_filter)
@@ -1593,6 +1616,11 @@ The bar chart shows <b>how quickly</b> users convert after installing — most c
 <div class="stat-card"><div class="sv" style="color:#E74C3C" id="sc-nc">{n_never_converted}</div><div class="sl">Never Converted</div></div>
 <div class="stat-card"><div class="sv" style="color:#FFEAA7" id="sc-ta">{n_trial_active}</div><div class="sl">Still in Trial</div></div>
 <div class="stat-card"><div class="sv" style="color:#BB8FCE" id="sc-eval">{n_evaluable}</div><div class="sl">Evaluable (Trial Expired)</div></div>
+</div>
+<div class="box" id="dday-table-box">
+<h4 style="color:#27AE60;margin-bottom:8px;font-size:14px">Conversion Retention by Time Window</h4>
+<p style="color:#888;font-size:11px;margin-bottom:8px">Users who converted within D days of install. Eligible = installed at least D days ago. <b style="color:#4ECDC4">When filtered by date, ALL future conversions are counted</b> (e.g., Jan install converting in Feb still counts).</p>
+<table><tr><th>Window</th><th>Eligible Users</th><th>Converted</th><th>Conversion Rate</th><th>Not Converted</th></tr>{dday_tbl}</table>
 </div>
 <div class="box"><div id="c-c2"></div></div>
 <div class="box" style="max-height:500px;overflow-y:auto"><h4 style="color:#4ECDC4;margin-bottom:8px;font-size:14px">Month-Wise Installs &amp; Conversion (Newest First)</h4>
@@ -1872,6 +1900,23 @@ function applyDateFilter(){{
   }});
   var mtTbl=document.querySelector("#t-conv table");
   if(mtTbl)mtTbl.innerHTML=mtHtml;
+
+  /* D-day conversion retention table */
+  var ddWindows=[3,7,15,30,45];
+  var ddHtml="<h4 style='color:#27AE60;margin-bottom:8px;font-size:14px'>Conversion Retention by Time Window</h4>";
+  ddHtml+="<p style='color:#888;font-size:11px;margin-bottom:8px'>Users who converted within D days of install. Eligible = installed at least D days ago. <b style='color:#4ECDC4'>ALL future conversions counted</b> regardless of date filter.</p>";
+  ddHtml+="<table><tr><th>Window</th><th>Eligible Users</th><th>Converted</th><th>Conversion Rate</th><th>Not Converted</th></tr>";
+  ddWindows.forEach(function(w){{
+    var elig=fu.filter(function(u){{return u.dsi!==null && u.dsi>=w}});
+    var convW=elig.filter(function(u){{return u.c && u.t2p!==null && u.t2p<=w}});
+    var nE=elig.length, nC=convW.length;
+    var rate=nE>0?(nC*100/nE):0;
+    var clr=rate>=70?"#27AE60":rate>=40?"#F39C12":"#E74C3C";
+    ddHtml+="<tr><td><b>D"+w+" (within "+w+" days)</b></td><td>"+nE+"</td><td>"+nC+"</td><td style='color:"+clr+"'><b>"+rate.toFixed(1)+"%</b></td><td>"+(nE-nC)+"</td></tr>";
+  }});
+  ddHtml+="</table>";
+  var ddBox=document.getElementById("dday-table-box");
+  if(ddBox)ddBox.innerHTML=ddHtml;
 
   /* === TAB 2: FIRST PLAN === */
   var fpKeys=Object.keys(fpDurs).map(Number).sort(function(a,b){{return a-b}});
