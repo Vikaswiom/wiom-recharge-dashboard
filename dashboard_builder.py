@@ -1,5 +1,5 @@
 """
-WIOM Recharge Lifecycle Analysis - Dynamic Dashboard
+WIOM PAYG Customers Dashboard - Dynamic Dashboard
 Fetches live data from Metabase API (Snowflake) instead of CSV.
 """
 import json, os, math, ssl, urllib.request
@@ -1441,7 +1441,7 @@ DATE_MAX_STR = str(date_max)
 # --- HTML ---
 html = f'''<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>WIOM Recharge Lifecycle Dashboard</title>
+<title>WIOM PAYG Customers Dashboard</title>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
@@ -1483,7 +1483,7 @@ footer{{text-align:center;padding:24px;color:#333;font-size:11px;border-top:1px 
 </style></head><body>
 
 <div class="hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
-<div><h1>WIOM Recharge Lifecycle Analytics</h1>
+<div><h1>WIOM PAYG Customers Dashboard</h1>
 <p>{total_users} users | {n_converted} converted, {n_never_converted} never converted, {n_trial_active} trial active | {len(paid_rows)} paid recharge records</p></div>
 <div style="text-align:right">
 <div id="update-time" style="font-size:11px;color:#4ECDC4;margin-bottom:4px">Last Updated: {NOW_STR} IST</div>
@@ -1696,7 +1696,7 @@ Peak: <b class="r">R{peak_rday}</b> ({peak_rday_count}). Bucket: <b class="y">{h
 <table><tr><th>R-Day</th><th>Users</th><th>%</th><th>Cum</th><th>Cum%</th></tr>{rday_detail_tbl}</table></div>
 </div>
 
-<footer>WIOM Recharge Lifecycle | {total_users} users | Generated {TODAY_STR}</footer>
+<footer>WIOM PAYG Customers Dashboard | {total_users} users | Generated {TODAY_STR}</footer>
 
 <script>
 var C={ALL_CHARTS};
