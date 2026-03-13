@@ -1501,7 +1501,7 @@ html = f'''<!DOCTYPE html>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:'Segoe UI',sans-serif;background:#000000;color:#e0e0e0}}
+body{{font-family:'Segoe UI',sans-serif;background:#000000;color:#e0e0e0;color-scheme:dark}}
 .hdr{{background:linear-gradient(135deg,#000000,#111111,#000000);padding:24px 36px;border-bottom:1px solid #222;position:sticky;top:0;z-index:100}}
 .hdr h1{{font-size:22px;background:linear-gradient(90deg,#E91E63,#FF6B9D);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800}}
 .hdr p{{font-size:12px;color:#777;margin-top:4px}}
@@ -1531,7 +1531,8 @@ td{{padding:7px 10px;border-bottom:1px solid #1a1a1a}}tr:hover{{background:#111}
 footer{{text-align:center;padding:24px;color:#444;font-size:11px;border-top:1px solid #1a1a1a;margin-top:30px}}
 .date-filter{{background:#0a0a0a;border:1px solid #222;border-radius:10px;padding:12px 24px;margin:12px 36px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}}
 .date-filter label{{color:#777;font-size:11px;text-transform:uppercase;letter-spacing:.5px}}
-.date-filter input[type=date]{{background:#000;border:1px solid #333;color:#E91E63;padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit}}
+.date-filter input[type=date]{{background:#111;border:1px solid #333;color:#E91E63;padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit}}
+.date-filter input[type=date]::-webkit-calendar-picker-indicator{{filter:invert(1) brightness(0.8);cursor:pointer}}
 .date-filter button{{background:linear-gradient(135deg,#E91E63,#C2185B);color:#fff;padding:6px 18px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer}}
 .date-filter button:hover{{opacity:.9}}
 .date-filter .reset-btn{{background:#222;color:#ccc}}
