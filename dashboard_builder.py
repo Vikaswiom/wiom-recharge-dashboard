@@ -1529,13 +1529,15 @@ td{{padding:7px 10px;border-bottom:1px solid #1a1a1a}}tr:hover{{background:#111}
 .stat-card{{background:#0a0a0a;border:1px solid #222;border-radius:8px;padding:12px 18px;text-align:center;flex:1;min-width:120px}}
 .stat-card .sv{{font-size:22px;font-weight:800;color:#E91E63}}.stat-card .sl{{font-size:10px;color:#777;text-transform:uppercase}}
 footer{{text-align:center;padding:24px;color:#444;font-size:11px;border-top:1px solid #1a1a1a;margin-top:30px}}
-.date-filter{{background:#0a0a0a;border:1px solid #222;border-radius:10px;padding:12px 24px;margin:12px 36px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}}
-.date-filter label{{color:#777;font-size:11px;text-transform:uppercase;letter-spacing:.5px}}
-.date-filter input[type=date]{{background:#111;border:1px solid #333;color:#E91E63;padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit}}
-.date-filter input[type=date]::-webkit-calendar-picker-indicator{{filter:invert(1) brightness(0.8);cursor:pointer}}
-.date-filter button{{background:linear-gradient(135deg,#E91E63,#C2185B);color:#fff;padding:6px 18px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer}}
+.date-filter{{background:#111;border:1px solid #333;border-radius:10px;padding:14px 24px;margin:12px 36px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}}
+.date-filter label{{color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}}
+.date-filter input[type=date]{{background:#1a1a1a;border:1px solid #444;color:#fff;padding:8px 12px;border-radius:6px;font-size:13px;font-family:inherit;min-width:140px}}
+.date-filter input[type=date]:focus{{border-color:#E91E63;outline:none;box-shadow:0 0 0 2px rgba(233,30,99,.3)}}
+.date-filter input[type=date]::-webkit-calendar-picker-indicator{{filter:invert(1);cursor:pointer}}
+.date-filter button{{background:linear-gradient(135deg,#E91E63,#C2185B);color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer}}
 .date-filter button:hover{{opacity:.9}}
-.date-filter .reset-btn{{background:#222;color:#ccc}}
+.date-filter .reset-btn{{background:#282828;color:#ddd;border:1px solid #444}}
+.date-filter .reset-btn:hover{{background:#333}}
 .date-filter .filter-info{{color:#E91E63;font-size:11px;font-weight:600}}
 </style></head><body>
 
