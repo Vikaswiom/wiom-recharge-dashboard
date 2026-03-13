@@ -1081,29 +1081,29 @@ print("\n=== BUILDING DASHBOARD ===")
 # --- CHARTS ---
 # 1. Install-to-paid histogram (hours)
 t2p_hist_h = [min(d * 24, 720) for d in t2p]
-c1 = json.dumps({"data":[{"type":"histogram","x":t2p_hist_h,"nbinsx":30,"marker":{"color":"#4ECDC4","line":{"color":"#0f0f23","width":1}}}],
-    "layout":{"title":{"text":"Install to First Paid (Hours)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Hours","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420}})
+c1 = json.dumps({"data":[{"type":"histogram","x":t2p_hist_h,"nbinsx":30,"marker":{"color":"#4ECDC4","line":{"color":"#230f18","width":1}}}],
+    "layout":{"title":{"text":"Install to First Paid (Hours)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"Hours","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":420}})
 
 # 2. Conversion buckets bar
 cb_l = list(conv_buckets.keys()); cb_v = list(conv_buckets.values()); cb_p = [round(v*100/max(1,len(t2p)),1) for v in cb_v]
 c2 = json.dumps({"data":[{"type":"bar","x":cb_l,"y":cb_v,"marker":{"color":["#27AE60","#4ECDC4","#FFEAA7","#F39C12","#E74C3C"]},
     "text":[f"{v} ({p}%)" for v,p in zip(cb_v,cb_p)],"textposition":"outside","textfont":{"color":"white","size":11}}],
-    "layout":{"title":{"text":"Conversion Time Buckets (from Install)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"tickfont":{"color":"#ccc"},"gridcolor":"#1a1a3e"},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420}})
+    "layout":{"title":{"text":"Conversion Time Buckets (from Install)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"tickfont":{"color":"#ccc"},"gridcolor":"#3e1a2e"},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":420}})
 
 # 3. Before vs After trial (pie)
 c3 = json.dumps({"data":[{"type":"pie","labels":["Before Trial Expiry","After Trial Expiry","Never Converted"],"values":[n_before_trial,n_after_trial,n_never_converted],
-    "marker":{"colors":["#27AE60","#4ECDC4","#E74C3C"],"line":{"color":"#0f0f23","width":2}},"textinfo":"label+value+percent","textfont":{"size":11,"color":"white"},"hole":0.4}],
-    "layout":{"title":{"text":"Conversion Timing vs Trial Expiry","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},"height":420}})
+    "marker":{"colors":["#27AE60","#4ECDC4","#E74C3C"],"line":{"color":"#230f18","width":2}},"textinfo":"label+value+percent","textfont":{"size":11,"color":"white"},"hole":0.4}],
+    "layout":{"title":{"text":"Conversion Timing vs Trial Expiry","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},"height":420}})
 
 # 4. First plan bar (all durations)
 _fpd_pcts = [round(v*100/max(1,n_with_first_plan),1) for v in fpd_values]
 c4 = json.dumps({"data":[{"type":"bar","x":fpd_labels,"y":fpd_values,
-    "marker":{"color":"#4ECDC4","line":{"color":"#0f0f23","width":1}},
+    "marker":{"color":"#4ECDC4","line":{"color":"#230f18","width":1}},
     "text":[f"{v} ({p}%)" for v,p in zip(fpd_values,_fpd_pcts)],"textposition":"outside","textfont":{"color":"white","size":11}}],
-    "layout":{"title":{"text":"First Paid Plan Duration (All Users)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Plan Duration","tickfont":{"color":"#ccc"},"categoryorder":"array","categoryarray":fpd_labels},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420}})
+    "layout":{"title":{"text":"First Paid Plan Duration (All Users)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"Plan Duration","tickfont":{"color":"#ccc"},"categoryorder":"array","categoryarray":fpd_labels},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":420}})
 
 # 5. Month-wise plan distribution (grouped bar)
 _month_labels_plan = [datetime.strptime(mk, '%Y-%m').strftime('%b %Y') for mk in month_plan_data.keys()]
@@ -1114,8 +1114,8 @@ for i, dur in enumerate(all_plan_durs_sorted):
     c5_traces.append({"type":"bar","name":f"{dur}-Day","x":_month_labels_plan,"y":vals,
         "marker":{"color":_plan_bar_colors[i % len(_plan_bar_colors)]}})
 c5 = json.dumps({"data":c5_traces,
-    "layout":{"title":{"text":"Month-Wise First Plan Distribution","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "barmode":"group","xaxis":{"tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},
+    "layout":{"title":{"text":"Month-Wise First Plan Distribution","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "barmode":"group","xaxis":{"tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},
     "legend":{"font":{"color":"#ccc"}},"height":480}})
 
 # 6. Retention curve
@@ -1126,9 +1126,9 @@ c6 = json.dumps({"data":[
     {"type":"scatter","x":ret_x,"y":ret_y,"mode":"lines+markers+text","name":"Retention %","marker":{"color":"#4ECDC4","size":10},"line":{"color":"#4ECDC4","width":3},
      "text":[f"{v}%" for v in ret_y],"textposition":"top center","textfont":{"color":"white","size":10}},
     {"type":"bar","x":ret_x,"y":ret_e,"name":"Eligible","yaxis":"y2","opacity":0.3,"marker":{"color":"#FFEAA7"}}],
-    "layout":{"title":{"text":"Paid Recharge Retention (Eligible Only)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Paid Recharge #","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"},"dtick":1},
-    "yaxis":{"title":"Retention %","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"},"range":[0,105]},
+    "layout":{"title":{"text":"Paid Recharge Retention (Eligible Only)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"Paid Recharge #","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"},"dtick":1},
+    "yaxis":{"title":"Retention %","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"},"range":[0,105]},
     "yaxis2":{"title":"Eligible Users","overlaying":"y","side":"right","gridcolor":"rgba(0,0,0,0)","tickfont":{"color":"#FFEAA7"}},
     "legend":{"font":{"color":"#ccc"},"x":0.7,"y":0.95},"height":480}})
 
@@ -1141,8 +1141,8 @@ c7 = json.dumps({"data":[
     {"type":"bar","name":"Retained","x":st_x,"y":st_r,"marker":{"color":"#27AE60"}},
     {"type":"bar","name":"Churned","x":st_x,"y":st_c,"marker":{"color":"#E74C3C"}},
     {"type":"bar","name":"Active (plan running)","x":st_x,"y":st_a,"marker":{"color":"#3498DB"}}],
-    "layout":{"title":{"text":"User Status at Each Paid Recharge Step","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "barmode":"stack","height":460,"xaxis":{"tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}}}})
+    "layout":{"title":{"text":"User Status at Each Paid Recharge Step","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "barmode":"stack","height":460,"xaxis":{"tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}}}})
 
 # 8. Plan-wise gap: Median/P80/P90 grouped bar (hours)
 _pg_labels = ['1-Day', '2-Day', '7-Day', '14-Day', '28-Day']
@@ -1158,8 +1158,8 @@ c8 = json.dumps({"data":[
     {"type":"bar","name":"P90","x":_pg_labels,"y":_pg_p90,"marker":{"color":"#F39C12"},
      "text":[f"{v}h" for v in _pg_p90],"textposition":"outside","textfont":{"color":"white","size":11}}],
     "layout":{"title":{"text":"Gap to Next Recharge by Plan Type (Hours)","font":{"size":18,"color":"white"}},"barmode":"group",
-    "paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Plan Duration","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Hours","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},
+    "paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"Plan Duration","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Hours","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},
     "height":460,"legend":{"font":{"color":"#ccc"}}}})
 
 # 9. Plan-wise gap distribution (overlaid histograms, hours)
@@ -1172,39 +1172,39 @@ for dur in [1,2,7,14,28]:
             "opacity":0.6,"nbinsx":25,"marker":{"color":_gap_colors[dur]}})
 c9 = json.dumps({"data":_gap_hist_data,
     "layout":{"title":{"text":"Gap Distribution by Plan Type (Hours)","font":{"size":18,"color":"white"}},"barmode":"overlay",
-    "paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Hours","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Count","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},
+    "paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"Hours","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Count","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},
     "height":420,"legend":{"font":{"color":"#ccc"}}}})
 
 # 10. Plan-wise gap table chart (count per plan)
 c10 = json.dumps({"data":[{"type":"bar","x":_pg_labels,"y":_pg_cnt,"marker":{"color":["#E74C3C","#9B59B6","#F39C12","#FFEAA7","#4ECDC4"]},
     "text":[f"n={n}" for n in _pg_cnt],"textposition":"outside","textfont":{"color":"white","size":11}}],
     "layout":{"title":{"text":"Recharge Gap Samples by Plan Type","font":{"size":18,"color":"white"}},
-    "paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Plan Duration","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Gap Count","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":400}})
+    "paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"Plan Duration","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Gap Count","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":400}})
 
 # 11. Segment pie
 sn = list(seg_profiles.keys()); sc = [seg_profiles[s]['count'] for s in sn]
-c11 = json.dumps({"data":[{"type":"pie","labels":sn,"values":sc,"marker":{"colors":["#27AE60","#FFEAA7","#E74C3C","#3498DB","#FF6B6B","#BB8FCE"][:len(sn)],"line":{"color":"#0f0f23","width":2}},
+c11 = json.dumps({"data":[{"type":"pie","labels":sn,"values":sc,"marker":{"colors":["#27AE60","#FFEAA7","#E74C3C","#3498DB","#FF6B6B","#BB8FCE"][:len(sn)],"line":{"color":"#230f18","width":2}},
     "textinfo":"label+value+percent","textfont":{"size":10,"color":"white"},"hole":0.4}],
-    "layout":{"title":{"text":"User Segments","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},"height":420,"legend":{"font":{"color":"#ccc","size":9}}}})
+    "layout":{"title":{"text":"User Segments","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},"height":420,"legend":{"font":{"color":"#ccc","size":9}}}})
 
 # 12. Segment compare
 c12 = json.dumps({"data":[
     {"type":"bar","name":"Avg Plan Dur","x":sn,"y":[seg_profiles[s]['avg_duration'] for s in sn],"marker":{"color":"#4ECDC4"}},
     {"type":"bar","name":"Med Gap","x":sn,"y":[seg_profiles[s]['median_gap'] for s in sn],"marker":{"color":"#FFEAA7"}},
     {"type":"bar","name":"Avg Lifetime","x":sn,"y":[seg_profiles[s]['avg_lifetime'] for s in sn],"marker":{"color":"#BB8FCE"}}],
-    "layout":{"title":{"text":"Segment Comparison","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "barmode":"group","height":460,"xaxis":{"tickfont":{"size":8,"color":"#ccc"}},"yaxis":{"title":"Days","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}}}})
+    "layout":{"title":{"text":"Segment Comparison","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "barmode":"group","height":460,"xaxis":{"tickfont":{"size":8,"color":"#ccc"}},"yaxis":{"title":"Days","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}}}})
 
 # 14. Daily installs + active
 c14 = json.dumps({"data":[
     {"type":"bar","x":day_dates,"y":day_installs,"name":"Installs","marker":{"color":"#4ECDC4"},"yaxis":"y"},
     {"type":"scatter","x":day_dates,"y":day_active_list,"name":"Active Paid","mode":"lines","line":{"color":"#27AE60","width":2},"yaxis":"y2"},
     {"type":"scatter","x":day_dates,"y":day_cum_installs,"name":"Cum Installs","mode":"lines","line":{"color":"#F39C12","width":2,"dash":"dot"},"yaxis":"y"}],
-    "layout":{"title":{"text":"Daily Installs & Active Paid Users","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"tickangle":-45,"tickfont":{"size":9,"color":"#ccc"},"gridcolor":"#1a1a3e"},
-    "yaxis":{"title":"Install/Cum","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},
+    "layout":{"title":{"text":"Daily Installs & Active Paid Users","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"tickangle":-45,"tickfont":{"size":9,"color":"#ccc"},"gridcolor":"#3e1a2e"},
+    "yaxis":{"title":"Install/Cum","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},
     "yaxis2":{"title":"Active","overlaying":"y","side":"right","tickfont":{"color":"#27AE60"}},
     "legend":{"font":{"color":"#ccc"},"x":0.01,"y":0.99},"height":480,"margin":{"b":100}}})
 
@@ -1212,19 +1212,19 @@ c14 = json.dumps({"data":[
 c15 = json.dumps({"data":[
     {"type":"bar","x":day_dates,"y":day_expired_list,"name":"Plans Expired","marker":{"color":"rgba(231,76,60,0.7)"}},
     {"type":"bar","x":day_dates,"y":day_recharged_list,"name":"Recharged","marker":{"color":"rgba(39,174,96,0.7)"}}],
-    "layout":{"title":{"text":"Daily Plan Expirations & Re-Recharges","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "barmode":"group","xaxis":{"tickangle":-45,"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Count","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}},"height":480,"margin":{"b":100}}})
+    "layout":{"title":{"text":"Daily Plan Expirations & Re-Recharges","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "barmode":"group","xaxis":{"tickangle":-45,"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Count","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}},"height":480,"margin":{"b":100}}})
 
 # 16. Sankey
-c16 = json.dumps({"data":[{"type":"sankey","node":{"label":sankey_labels,"color":sankey_node_colors,"pad":20,"thickness":20,"line":{"color":"#0f0f23","width":1}},
+c16 = json.dumps({"data":[{"type":"sankey","node":{"label":sankey_labels,"color":sankey_node_colors,"pad":20,"thickness":20,"line":{"color":"#230f18","width":1}},
     "link":{"source":sankey_src,"target":sankey_tgt,"value":sankey_val,"color":sankey_link_clr}}],
-    "layout":{"title":{"text":"Plan Duration Flow (Paid Recharges)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white","size":10},"height":550,"margin":{"l":20,"r":20}}})
+    "layout":{"title":{"text":"Plan Duration Flow (Paid Recharges)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white","size":10},"height":550,"margin":{"l":20,"r":20}}})
 
 # 17. Transition heatmap (includes No Recharge column)
 trans_z = [[overall_trans[fp].get(tp,0) for tp in all_plan_types_with_nr] for fp in all_plan_types]
 c17 = json.dumps({"data":[{"type":"heatmap","z":trans_z,"x":all_plan_types_with_nr,"y":all_plan_types,
-    "colorscale":[[0,"#0f0f23"],[0.5,"#4ECDC4"],[1,"#E74C3C"]],"text":trans_z,"texttemplate":"%{text}","textfont":{"size":12,"color":"white"}}],
-    "layout":{"title":{"text":"Plan Transition Matrix (incl. No Recharge)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
+    "colorscale":[[0,"#230f18"],[0.5,"#E91E63"],[1,"#E74C3C"]],"text":trans_z,"texttemplate":"%{text}","textfont":{"size":12,"color":"white"}}],
+    "layout":{"title":{"text":"Plan Transition Matrix (incl. No Recharge)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
     "xaxis":{"title":"To Plan","tickfont":{"color":"#ccc"}},"yaxis":{"title":"From Plan","tickfont":{"color":"#ccc"},"autorange":"reversed"},"height":420}})
 
 # 18. Plan dist per recharge
@@ -1232,56 +1232,56 @@ max_dist = min(10, max(rech_plan_dist.keys()) if rech_plan_dist else 1)
 dist_x = [f"P#{n}" for n in range(1, max_dist+1)]
 c18 = json.dumps({"data":[{"type":"bar","name":pt,"x":dist_x,"y":[rech_plan_dist[n].get(pt,0) for n in range(1,max_dist+1)],
     "marker":{"color":plan_colors_map.get(pt,'#888')}} for pt in all_plan_types],
-    "layout":{"title":{"text":"Plan Type by Paid Recharge #","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "barmode":"stack","height":420,"xaxis":{"tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}}}})
+    "layout":{"title":{"text":"Plan Type by Paid Recharge #","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "barmode":"stack","height":420,"xaxis":{"tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}}}})
 
 # 19. Trial funnel
 c19 = json.dumps({"data":[{"type":"funnel","y":funnel_labels,"x":funnel_values,"textinfo":"value+percent initial","textfont":{"color":"white","size":12},
     "marker":{"color":["#4ECDC4","#FFEAA7","#27AE60","#E74C3C"]},"connector":{"line":{"color":"#2a2a5e","width":1}}}],
-    "layout":{"title":{"text":f"Trial Funnel","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},"height":420,"margin":{"l":220}}})
+    "layout":{"title":{"text":f"Trial Funnel","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},"height":420,"margin":{"l":220}}})
 
 # 20. Conv timing
 ct_l=list(conv_timing_bkt.keys()); ct_v=list(conv_timing_bkt.values()); ct_p=[v*100/max(1,conv_after_count) for v in ct_v]
 c20 = json.dumps({"data":[{"type":"bar","x":ct_l,"y":ct_v,"marker":{"color":["#27AE60","#4ECDC4","#FFEAA7","#F39C12","#E74C3C"]},
     "text":[f"{v} ({p:.0f}%)" for v,p in zip(ct_v,ct_p)],"textposition":"outside","textfont":{"color":"white","size":11}}],
-    "layout":{"title":{"text":"Post-Trial Conversion Timing","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420}})
+    "layout":{"title":{"text":"Post-Trial Conversion Timing","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":420}})
 
 # 21. Cum conv
 c21 = json.dumps({"data":[{"type":"scatter","x":cum_conv_x,"y":cum_conv_y,"mode":"lines+markers","fill":"tozeroy",
-    "line":{"color":"#4ECDC4","width":2},"fillcolor":"rgba(78,205,196,0.15)","marker":{"size":4,"color":"#4ECDC4"}}],
-    "layout":{"title":{"text":"Cumulative Conversion After Trial Expiry","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Days After Expiry","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"},"dtick":1},"yaxis":{"title":"% Converted","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"},"range":[0,105]},"height":420}})
+    "line":{"color":"#4ECDC4","width":2},"fillcolor":"rgba(233,30,99,0.15)","marker":{"size":4,"color":"#4ECDC4"}}],
+    "layout":{"title":{"text":"Cumulative Conversion After Trial Expiry","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"Days After Expiry","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"},"dtick":1},"yaxis":{"title":"% Converted","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"},"range":[0,105]},"height":420}})
 
 # 22. Plan by timing
 pt_traces = [{"type":"bar","name":pt,"x":timing_bucket_names,"y":[plan_by_timing[bkt].get(pt,0) for bkt in timing_bucket_names],
     "marker":{"color":plan_colors_map.get(pt,'#888')}} for pt in _plan_order_list]
-c22 = json.dumps({"data":pt_traces,"layout":{"title":{"text":"Plan by Conversion Timing","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "barmode":"stack","height":420,"xaxis":{"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}}}})
+c22 = json.dumps({"data":pt_traces,"layout":{"title":{"text":"Plan by Conversion Timing","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "barmode":"stack","height":420,"xaxis":{"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"legend":{"font":{"color":"#ccc"}}}})
 
 # 23. Install month (fix: use category axis to prevent Plotly date auto-detect)
 c23 = json.dumps({"data":[{"type":"bar","x":im_labels,"y":im_values,"marker":{"color":"#BB8FCE"},"text":im_values,"textposition":"outside","textfont":{"color":"white","size":11}}],
-    "layout":{"title":{"text":"Install Month","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"type":"category","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":400}})
+    "layout":{"title":{"text":"Install Month","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"type":"category","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":400}})
 
 # 24-26. R-Day charts
 if rday_values:
     rbl=sorted(rday_dist.keys()); rby=[rday_dist[rd] for rd in rbl]; rbla=[f"R{rd}" for rd in rbl]
 else: rbl,rby,rbla=[0],[0],["R0"]
 c24 = json.dumps({"data":[{"type":"bar","x":rbla,"y":rby,"marker":{"color":"#FF6B6B"},"text":rby,"textposition":"outside","textfont":{"color":"white","size":9}}],
-    "layout":{"title":{"text":"R-Day Distribution (Non-Converted)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"R-Day","tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":460}})
+    "layout":{"title":{"text":"R-Day Distribution (Non-Converted)","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"R-Day","tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":460}})
 
 c25 = json.dumps({"data":[{"type":"scatter","x":[f"R{d}" for d in rday_cum_x],"y":rday_cum_pct,"mode":"lines+markers","fill":"tozeroy",
     "line":{"color":"#E74C3C","width":2},"fillcolor":"rgba(231,76,60,0.15)","marker":{"size":4,"color":"#E74C3C"}}],
-    "layout":{"title":{"text":"Cumulative Non-Converted by R-Day","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"R-Day","tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"% Still Not Converted","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"},"range":[0,105]},"height":420}})
+    "layout":{"title":{"text":"Cumulative Non-Converted by R-Day","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"R-Day","tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"% Still Not Converted","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"},"range":[0,105]},"height":420}})
 
 rbl2=list(rday_buckets.keys()); rbv2=list(rday_buckets.values()); rbp2=[v*100/max(1,total_rday) for v in rbv2]
 c26 = json.dumps({"data":[{"type":"bar","x":rbl2,"y":rbv2,"marker":{"color":["#4ECDC4","#27AE60","#F39C12","#E74C3C"]},
     "text":[f"{v} ({p:.0f}%)" for v,p in zip(rbv2,rbp2)],"textposition":"outside","textfont":{"color":"white","size":11}}],
-    "layout":{"title":{"text":"R-Day Risk Buckets","font":{"size":18,"color":"white"}},"paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"tickangle":-15,"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420,"margin":{"b":80}}})
+    "layout":{"title":{"text":"R-Day Risk Buckets","font":{"size":18,"color":"white"}},"paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"tickangle":-15,"tickfont":{"size":9,"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":420,"margin":{"b":80}}})
 
 # 27. Plan-wise recharge frequency (grouped bar)
 _freq_bkt_names = ['1+ times','2+ times','3+ times','5+ times','10+ times']
@@ -1299,8 +1299,8 @@ for i, bkt in enumerate(_freq_bkt_names):
         "textposition":"outside","textfont":{"color":"white","size":10}})
 c27 = json.dumps({"data":_freq_traces,
     "layout":{"title":{"text":"Plan-Wise Purchase Frequency","font":{"size":18,"color":"white"}},"barmode":"group",
-    "paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"title":"Plan Type","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Count","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},
+    "paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"title":"Plan Type","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Count","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},
     "height":460,"legend":{"font":{"color":"#ccc"}}}})
 
 # 28. Churn distribution by days since expiry
@@ -1310,17 +1310,17 @@ c28 = json.dumps({"data":[{"type":"bar","x":_cd_labels,"y":_cd_vals,
     "marker":{"color":["#FFEAA7","#F39C12","#E74C3C","#8B0000"]},
     "text":[f"{v} ({p:.0f}%)" for v,p in zip(_cd_vals,_cd_pcts)],"textposition":"outside","textfont":{"color":"white","size":11}}],
     "layout":{"title":{"text":"Churned Users by Days Since Plan Expired","font":{"size":18,"color":"white"}},
-    "paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},
-    "xaxis":{"type":"category","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#1a1a3e","tickfont":{"color":"#ccc"}},"height":420}})
+    "paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},
+    "xaxis":{"type":"category","tickfont":{"color":"#ccc"}},"yaxis":{"title":"Users","gridcolor":"#3e1a2e","tickfont":{"color":"#ccc"}},"height":420}})
 
 # 29. Churn by last plan type
 _cbp_labels = [plan_cat(d) for d in [1,2,7,14,28]]
 _cbp_vals = [churn_by_plan.get(p,0) for p in _cbp_labels]
 c29 = json.dumps({"data":[{"type":"pie","labels":_cbp_labels,"values":_cbp_vals,
-    "marker":{"colors":["#E74C3C","#9B59B6","#F39C12","#FFEAA7","#4ECDC4"],"line":{"color":"#0f0f23","width":2}},
+    "marker":{"colors":["#E74C3C","#9B59B6","#F39C12","#FFEAA7","#4ECDC4"],"line":{"color":"#230f18","width":2}},
     "textinfo":"label+value+percent","textfont":{"size":11,"color":"white"},"hole":0.4}],
     "layout":{"title":{"text":"Churned Users by Last Plan Type","font":{"size":18,"color":"white"}},
-    "paper_bgcolor":"#0f0f23","plot_bgcolor":"#0f0f23","font":{"color":"white"},"height":420}})
+    "paper_bgcolor":"#230f18","plot_bgcolor":"#230f18","font":{"color":"white"},"height":420}})
 
 ALL_CHARTS = json.dumps({
     "c2":json.loads(c2),
@@ -1396,7 +1396,7 @@ for fp in all_plan_types:
             bg=f"rgba(231,76,60,{min(pct/100*2,0.6):.2f})" if cnt>0 else "transparent"
             cells += f"<td style='background:{bg};color:#E74C3C'><b>{cnt}</b> <small>({pct:.0f}%)</small></td>"
         else:
-            bg=f"rgba(78,205,196,{min(pct/100*2,0.6):.2f})" if cnt>0 else "transparent"
+            bg=f"rgba(233,30,99,{min(pct/100*2,0.6):.2f})" if cnt>0 else "transparent"
             cells += f"<td style='background:{bg}'>{cnt} <small>({pct:.0f}%)</small></td>"
     trans_tbl += f"<tr><td><b>{fp}</b></td>{cells}<td><b>{rt}</b></td></tr>"
 
@@ -1501,50 +1501,50 @@ html = f'''<!DOCTYPE html>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:'Segoe UI',sans-serif;background:#0a0a1a;color:#e0e0e0}}
-.hdr{{background:linear-gradient(135deg,#0f0f23,#1a1a4e,#0f0f23);padding:24px 36px;border-bottom:1px solid #2a2a5e;position:sticky;top:0;z-index:100}}
-.hdr h1{{font-size:22px;background:linear-gradient(90deg,#4ECDC4,#FF6B6B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800}}
+body{{font-family:'Segoe UI',sans-serif;background:#1a0a12;color:#e0e0e0}}
+.hdr{{background:linear-gradient(135deg,#1a0a12,#3d1028,#1a0a12);padding:24px 36px;border-bottom:1px solid #5e2a42;position:sticky;top:0;z-index:100}}
+.hdr h1{{font-size:22px;background:linear-gradient(90deg,#E91E63,#FF6B9D);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800}}
 .hdr p{{font-size:12px;color:#888;margin-top:4px}}
 .kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;padding:18px 36px}}
-.kpi{{background:linear-gradient(145deg,#14142e,#1a1a3e);border:1px solid #2a2a5e;border-radius:12px;padding:16px;text-align:center;transition:transform .2s}}
-.kpi:hover{{transform:translateY(-3px);box-shadow:0 6px 24px rgba(78,205,196,.12)}}
+.kpi{{background:linear-gradient(145deg,#2e1420,#3e1a2e);border:1px solid #5e2a42;border-radius:12px;padding:16px;text-align:center;transition:transform .2s}}
+.kpi:hover{{transform:translateY(-3px);box-shadow:0 6px 24px rgba(233,30,99,.15)}}
 .kpi .v{{font-size:26px;font-weight:800}}.kpi .l{{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px}}
-.tabs{{display:flex;padding:0 36px;border-bottom:1px solid #2a2a5e;overflow-x:auto;gap:0}}
-.tab{{padding:11px 18px;cursor:pointer;font-size:12px;font-weight:600;color:#555;border-bottom:3px solid transparent;transition:.2s;white-space:nowrap}}
-.tab:hover{{color:#aaa}}.tab.active{{color:#4ECDC4;border-bottom-color:#4ECDC4}}
+.tabs{{display:flex;padding:0 36px;border-bottom:1px solid #5e2a42;overflow-x:auto;gap:0}}
+.tab{{padding:11px 18px;cursor:pointer;font-size:12px;font-weight:600;color:#777;border-bottom:3px solid transparent;transition:.2s;white-space:nowrap}}
+.tab:hover{{color:#ccc}}.tab.active{{color:#E91E63;border-bottom-color:#E91E63}}
 .tc{{display:none;padding:18px 36px}}.tc.active{{display:block}}
-.box{{background:#0f0f23;border:1px solid #1a1a3e;border-radius:12px;padding:14px;margin-bottom:16px}}
-.ins{{background:linear-gradient(145deg,#14142e,#1e1e4a);border-left:4px solid #4ECDC4;border-radius:0 10px 10px 0;padding:14px 18px;margin:12px 0;font-size:13px;line-height:1.7}}
-.ins b{{color:#4ECDC4}}.ins .r{{color:#FF6B6B}}.ins .g{{color:#2ECC71}}.ins .y{{color:#F1C40F}}
+.box{{background:#230f18;border:1px solid #3e1a2e;border-radius:12px;padding:14px;margin-bottom:16px}}
+.ins{{background:linear-gradient(145deg,#2e1420,#3d1833);border-left:4px solid #E91E63;border-radius:0 10px 10px 0;padding:14px 18px;margin:12px 0;font-size:13px;line-height:1.7}}
+.ins b{{color:#E91E63}}.ins .r{{color:#FF6B6B}}.ins .g{{color:#2ECC71}}.ins .y{{color:#F1C40F}}
 table{{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px}}
-th{{background:#14142e;color:#4ECDC4;padding:9px 10px;text-align:left;border-bottom:2px solid #2a2a5e;font-size:10px;text-transform:uppercase;letter-spacing:.5px}}
-td{{padding:7px 10px;border-bottom:1px solid #1a1a3e}}tr:hover{{background:#14142e}}
+th{{background:#2e1420;color:#E91E63;padding:9px 10px;text-align:left;border-bottom:2px solid #5e2a42;font-size:10px;text-transform:uppercase;letter-spacing:.5px}}
+td{{padding:7px 10px;border-bottom:1px solid #3e1a2e}}tr:hover{{background:#2e1420}}
 .g2{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}
 @media(max-width:900px){{.g2{{grid-template-columns:1fr}}}}
 .badge{{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;margin:2px}}
 .badge-r{{background:rgba(231,76,60,.2);color:#E74C3C}}.badge-g{{background:rgba(39,174,96,.2);color:#27AE60}}
 .badge-y{{background:rgba(241,196,15,.2);color:#F1C40F}}.badge-b{{background:rgba(52,152,219,.2);color:#3498DB}}
-.hyp{{margin-bottom:10px;padding:12px;background:#1a1a3e;border-radius:8px;border-left:3px solid;font-size:13px;line-height:1.6}}
+.hyp{{margin-bottom:10px;padding:12px;background:#3e1a2e;border-radius:8px;border-left:3px solid;font-size:13px;line-height:1.6}}
 .stat-row{{display:flex;gap:16px;margin:8px 0;flex-wrap:wrap}}
-.stat-card{{background:#14142e;border:1px solid #2a2a5e;border-radius:8px;padding:12px 18px;text-align:center;flex:1;min-width:120px}}
-.stat-card .sv{{font-size:22px;font-weight:800;color:#4ECDC4}}.stat-card .sl{{font-size:10px;color:#888;text-transform:uppercase}}
-footer{{text-align:center;padding:24px;color:#333;font-size:11px;border-top:1px solid #1a1a3e;margin-top:30px}}
-.date-filter{{background:#14142e;border:1px solid #2a2a5e;border-radius:10px;padding:12px 24px;margin:12px 36px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}}
+.stat-card{{background:#2e1420;border:1px solid #5e2a42;border-radius:8px;padding:12px 18px;text-align:center;flex:1;min-width:120px}}
+.stat-card .sv{{font-size:22px;font-weight:800;color:#E91E63}}.stat-card .sl{{font-size:10px;color:#888;text-transform:uppercase}}
+footer{{text-align:center;padding:24px;color:#555;font-size:11px;border-top:1px solid #3e1a2e;margin-top:30px}}
+.date-filter{{background:#2e1420;border:1px solid #5e2a42;border-radius:10px;padding:12px 24px;margin:12px 36px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}}
 .date-filter label{{color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.5px}}
-.date-filter input[type=date]{{background:#0f0f23;border:1px solid #2a2a5e;color:#4ECDC4;padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit}}
-.date-filter button{{background:linear-gradient(135deg,#4ECDC4,#27AE60);color:#0a0a1a;padding:6px 18px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer}}
+.date-filter input[type=date]{{background:#230f18;border:1px solid #5e2a42;color:#E91E63;padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit}}
+.date-filter button{{background:linear-gradient(135deg,#E91E63,#C2185B);color:#fff;padding:6px 18px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer}}
 .date-filter button:hover{{opacity:.9}}
-.date-filter .reset-btn{{background:#2a2a5e;color:#ccc}}
-.date-filter .filter-info{{color:#4ECDC4;font-size:11px;font-weight:600}}
+.date-filter .reset-btn{{background:#5e2a42;color:#ccc}}
+.date-filter .filter-info{{color:#E91E63;font-size:11px;font-weight:600}}
 </style></head><body>
 
 <div class="hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
 <div><h1>WIOM PAYG Customers Dashboard</h1>
 <p>{total_users} users | {n_converted} converted, {n_never_converted} never converted, {n_trial_active} trial active | {len(paid_rows)} paid recharge records</p></div>
 <div style="text-align:right">
-<div id="update-time" style="font-size:11px;color:#4ECDC4;margin-bottom:4px">Last Updated: {NOW_STR} IST</div>
+<div id="update-time" style="font-size:11px;color:#E91E63;margin-bottom:4px">Last Updated: {NOW_STR} IST</div>
 <button onclick="refreshDashboard(this)"
-style="background:linear-gradient(135deg,#4ECDC4,#27AE60);color:#0a0a1a;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer">Refresh Data</button>
+style="background:linear-gradient(135deg,#E91E63,#C2185B);color:#fff;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer">Refresh Data</button>
 <script>
 function refreshDashboard(btn){{
   btn.disabled=true;
@@ -1882,8 +1882,8 @@ function applyDateFilter(){{
   var bV=bktOrder.map(function(k){{return bkts[k]}});
   var bT=bV.map(function(v){{var p=t2ps.length>0?(v*100/t2ps.length).toFixed(1):"0.0";return v+" ("+p+"%)"}});
   Plotly.react("c-c2",[{{type:"bar",x:bktOrder,y:bV,marker:{{color:bktColors}},text:bT,textposition:"outside",textfont:{{color:"white",size:11}}}}],
-    {{title:{{text:"Conversion Time Buckets (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
-    xaxis:{{tickfont:{{color:"#ccc"}},gridcolor:"#1a1a3e"}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
+    {{title:{{text:"Conversion Time Buckets (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#230f18",plot_bgcolor:"#230f18",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}},gridcolor:"#3e1a2e"}},yaxis:{{title:"Users",gridcolor:"#3e1a2e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
 
   /* month-wise conversion table */
   var mConv={{}};
@@ -1935,8 +1935,8 @@ function applyDateFilter(){{
   var fpTotal=fpV.reduce(function(a,b){{return a+b}},0);
   var fpT=fpV.map(function(v){{var p=fpTotal>0?(v*100/fpTotal).toFixed(1):"0";return v+" ("+p+"%)"}});
   Plotly.react("c-c4",[{{type:"bar",x:fpL,y:fpV,marker:{{color:"#4ECDC4",line:{{color:"#0f0f23",width:1}}}},text:fpT,textposition:"outside",textfont:{{color:"white",size:11}}}}],
-    {{title:{{text:"First Paid Plan Duration (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
-    xaxis:{{title:"Plan Duration",tickfont:{{color:"#ccc"}},categoryorder:"array",categoryarray:fpL}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
+    {{title:{{text:"First Paid Plan Duration (Filtered)",font:{{size:18,color:"white"}}}},paper_bgcolor:"#230f18",plot_bgcolor:"#230f18",font:{{color:"white"}},
+    xaxis:{{title:"Plan Duration",tickfont:{{color:"#ccc"}},categoryorder:"array",categoryarray:fpL}},yaxis:{{title:"Users",gridcolor:"#3e1a2e",tickfont:{{color:"#ccc"}}}},height:420}},cfg);
 
   /* c5: month-wise plan (grouped bar) */
   var mpData={{}};var allDurs={{}};
@@ -1956,8 +1956,8 @@ function applyDateFilter(){{
     return {{type:"bar",name:d+"-Day",x:mkLabels,y:vals,marker:{{color:barColors[i%barColors.length]}}}};
   }});
   Plotly.react("c-c5",c5traces,
-    {{title:{{text:"Month-Wise First Plan (Filtered)",font:{{size:18,color:"white"}}}},barmode:"group",paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
-    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:450,legend:{{font:{{color:"#ccc"}}}}}},cfg);
+    {{title:{{text:"Month-Wise First Plan (Filtered)",font:{{size:18,color:"white"}}}},barmode:"group",paper_bgcolor:"#230f18",plot_bgcolor:"#230f18",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#3e1a2e",tickfont:{{color:"#ccc"}}}},height:450,legend:{{font:{{color:"#ccc"}}}}}},cfg);
 
   /* month-wise plan table */
   var mpTbl=document.querySelector("#t-firstplan table");
@@ -2007,8 +2007,8 @@ function applyDateFilter(){{
   }});
   var cdV=churnRechOrder.map(function(k){{return churnRech[k]}});
   Plotly.react("c-c28",[{{type:"bar",x:churnRechOrder,y:cdV,marker:{{color:["#E74C3C","#F39C12","#FFEAA7","#27AE60"]}},text:cdV.map(String),textposition:"outside",textfont:{{color:"white",size:12}}}}],
-    {{title:{{text:"Churned Users by Recharge Count (Filtered)",font:{{size:16,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
-    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:400}},cfg);
+    {{title:{{text:"Churned Users by Recharge Count (Filtered)",font:{{size:16,color:"white"}}}},paper_bgcolor:"#230f18",plot_bgcolor:"#230f18",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#3e1a2e",tickfont:{{color:"#ccc"}}}},height:400}},cfg);
 
   /* churn distribution table */
   var cdTbl="<table><tr><th>Days Since Expired</th><th>Users</th><th>%</th><th>Avg Plan Duration</th></tr>";
@@ -2055,8 +2055,8 @@ function applyDateFilter(){{
 
   var rV=rOrder.map(function(k){{return rBkts[k]}});
   Plotly.react("c-c26",[{{type:"bar",x:rOrder,y:rV,marker:{{color:["#4ECDC4","#27AE60","#F39C12","#E74C3C"]}},text:rV.map(String),textposition:"outside",textfont:{{color:"white",size:12}}}}],
-    {{title:{{text:"R-Day Risk Buckets (Filtered)",font:{{size:16,color:"white"}}}},paper_bgcolor:"#0f0f23",plot_bgcolor:"#0f0f23",font:{{color:"white"}},
-    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#1a1a3e",tickfont:{{color:"#ccc"}}}},height:400}},cfg);
+    {{title:{{text:"R-Day Risk Buckets (Filtered)",font:{{size:16,color:"white"}}}},paper_bgcolor:"#230f18",plot_bgcolor:"#230f18",font:{{color:"white"}},
+    xaxis:{{tickfont:{{color:"#ccc"}}}},yaxis:{{title:"Users",gridcolor:"#3e1a2e",tickfont:{{color:"#ccc"}}}},height:400}},cfg);
 
   /* R-day detail table */
   var rdKeys=Object.keys(rdayDetail).map(Number).sort(function(a,b){{return a-b}});
