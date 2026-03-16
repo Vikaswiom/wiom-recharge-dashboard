@@ -36,10 +36,15 @@ jobs:
       - name: Install dependencies
         run: pip install numpy
 
-      - name: Build dashboard
+      - name: Build recharge dashboard
         env:
           METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
         run: python dashboard_builder.py
+
+      - name: Build PUT dashboard
+        env:
+          METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
+        run: python put_dashboard_builder.py
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
