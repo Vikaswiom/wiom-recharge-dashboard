@@ -232,12 +232,12 @@ for uid in all_uids:
     # First paid plan duration (from first recharge row)
     first_paid_dur = paid_recs[0]['plan_duration'] if paid_recs else 0
 
-    # Gaps between paid recharges
+    # Gaps between paid recharges (only count if previous plan has expired)
     gaps = []
     for i in range(1, len(paid_recs)):
         prev_end = paid_recs[i-1]['plan_end']
         curr_start = paid_recs[i]['plan_start']
-        if prev_end and curr_start:
+        if prev_end and curr_start and prev_end < TODAY:
             gap = (curr_start - prev_end).total_seconds() / 86400
             gaps.append(gap)
 
@@ -580,7 +580,7 @@ all_gaps = []
 for u in users.values():
     all_gaps.extend(u['gaps'])
 
-# Build plan-wise gaps: group by previous plan duration
+# Build plan-wise gaps: group by previous plan duration (only expired plans)
 plan_wise_gaps = defaultdict(list)
 for u in users.values():
     recs = u['paid_recs']
@@ -588,7 +588,7 @@ for u in users.values():
         prev_end = recs[i-1]['plan_end']
         curr_start = recs[i]['plan_start']
         prev_dur = recs[i-1]['plan_duration']
-        if prev_end and curr_start and prev_dur in (1, 2, 7, 14, 28):
+        if prev_end and curr_start and prev_end < TODAY and prev_dur in (1, 2, 7, 14, 28):
             gap_days = (curr_start - prev_end).total_seconds() / 86400
             plan_wise_gaps[prev_dur].append(gap_days)
 
