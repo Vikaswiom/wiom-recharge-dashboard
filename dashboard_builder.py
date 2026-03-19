@@ -775,9 +775,11 @@ step_trans = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 for u in users.values():
     recs = u['paid_recs']
     for i in range(len(recs) - 1):
-        fp = plan_cat(recs[i]['plan_duration'])
-        tp = plan_cat(recs[i+1]['plan_duration'])
-        step_trans[i+1][fp][tp] += 1
+        # Only count transition if the "from" plan has expired
+        if recs[i]['plan_end'] and recs[i]['plan_end'] < TODAY:
+            fp = plan_cat(recs[i]['plan_duration'])
+            tp = plan_cat(recs[i+1]['plan_duration'])
+            step_trans[i+1][fp][tp] += 1
 
 overall_trans = defaultdict(lambda: defaultdict(int))
 for sd in step_trans.values():
@@ -846,21 +848,21 @@ rech_plan_dist = defaultdict(Counter)
 for r in paid_rows:
     rech_plan_dist[r.get('recharge_num',1)][plan_cat(r['plan_duration'])] += 1
 
-# Journey paths (only 3+ steps)
+# Journey paths (only 3+ steps) — only include expired plans
 path_counter = Counter()
 for u in users.values():
-    recs = u['paid_recs']
-    if len(recs) < 3: continue  # skip users with fewer than 3 paid recharges
-    path = " -> ".join(plan_cat(r['plan_duration']) for r in recs)
+    expired_recs = [r for r in u['paid_recs'] if r['plan_end'] and r['plan_end'] < TODAY]
+    if len(expired_recs) < 3: continue
+    path = " -> ".join(plan_cat(r['plan_duration']) for r in expired_recs)
     path_counter[path] += 1
 top_paths = path_counter.most_common(20)
 
-# Journey paths (2+ steps)
+# Journey paths (2+ steps) — only include expired plans
 path_counter_2 = Counter()
 for u in users.values():
-    recs = u['paid_recs']
-    if len(recs) < 2: continue
-    path = " -> ".join(plan_cat(r['plan_duration']) for r in recs)
+    expired_recs = [r for r in u['paid_recs'] if r['plan_end'] and r['plan_end'] < TODAY]
+    if len(expired_recs) < 2: continue
+    path = " -> ".join(plan_cat(r['plan_duration']) for r in expired_recs)
     path_counter_2[path] += 1
 top_paths_2 = path_counter_2.most_common(20)
 
