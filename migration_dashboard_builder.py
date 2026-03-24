@@ -317,6 +317,23 @@ edu_total = len(edu_50)
 edu_completed = sum(1 for r in edu_50 if r['education_completed'] == 1)
 edu_pct = pct(edu_completed, edu_total)
 
+# ── 6c. Education Funnel — 50 Mbps due customers breakdown ──
+edu_done = [r for r in edu_50 if r['education_completed'] == 1]
+edu_not_done = [r for r in edu_50 if r['education_completed'] != 1]
+
+edu_done_payg = sum(1 for r in edu_done if r['has_migrated'] == 1)
+edu_done_non_payg = sum(1 for r in edu_done if r['has_recharged'] == 1 and r['has_migrated'] != 1)
+edu_done_no_recharge = len(edu_done) - edu_done_payg - edu_done_non_payg
+
+edu_not_done_payg = sum(1 for r in edu_not_done if r['has_migrated'] == 1)
+edu_not_done_non_payg = sum(1 for r in edu_not_done if r['has_recharged'] == 1 and r['has_migrated'] != 1)
+edu_not_done_no_recharge = len(edu_not_done) - edu_not_done_payg - edu_not_done_non_payg
+
+# Education funnel chart data
+edu_funnel_labels = ['PAYG Recharge', 'Non-PAYG Recharge', 'No Recharge']
+edu_funnel_done_vals = [edu_done_payg, edu_done_non_payg, edu_done_no_recharge]
+edu_funnel_not_done_vals = [edu_not_done_payg, edu_not_done_non_payg, edu_not_done_no_recharge]
+
 # ── 7. Daily cohort trend ──
 daily = {}
 for r in records:
@@ -499,6 +516,45 @@ html = f"""<!DOCTYPE html>
   </div>
 </div>
 
+<!-- ── Education Funnel (50 Mbps Due) ── -->
+<h2 class="section-title">Education &amp; Recharge Funnel (50 Mbps Due Customers)</h2>
+<div class="kpi-row" style="margin-bottom:12px;">
+  <div class="kpi" style="border-left:3px solid #4ade80;"><div class="val" style="color:#4ade80;">{edu_completed}</div><div class="lbl">Education Completed ({pct(edu_completed, edu_total)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #f87171;"><div class="val" style="color:#f87171;">{edu_total - edu_completed}</div><div class="lbl">Not Completed ({pct(edu_total - edu_completed, edu_total)}%)</div></div>
+</div>
+<div class="chart-grid">
+  <div class="chart-box" id="eduFunnelChart"></div>
+  <div class="table-box" style="min-height:420px;">
+    <h3 style="margin-bottom:10px; color:#f1f5f9; font-size:1rem;">Education &rarr; Recharge Breakdown</h3>
+    <table>
+      <thead><tr><th style="text-align:left;">Education Status</th><th>Total</th><th style="color:#22d3ee;">PAYG Recharge</th><th style="color:#fb923c;">Non-PAYG Recharge</th><th style="color:#f87171;">No Recharge</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="text-align:left;font-weight:600;color:#4ade80;">Completed</td>
+          <td>{len(edu_done)}</td>
+          <td style="color:#22d3ee;">{edu_done_payg} ({pct(edu_done_payg, len(edu_done))}%)</td>
+          <td style="color:#fb923c;">{edu_done_non_payg} ({pct(edu_done_non_payg, len(edu_done))}%)</td>
+          <td style="color:#f87171;">{edu_done_no_recharge} ({pct(edu_done_no_recharge, len(edu_done))}%)</td>
+        </tr>
+        <tr>
+          <td style="text-align:left;font-weight:600;color:#f87171;">Not Completed</td>
+          <td>{len(edu_not_done)}</td>
+          <td style="color:#22d3ee;">{edu_not_done_payg} ({pct(edu_not_done_payg, len(edu_not_done))}%)</td>
+          <td style="color:#fb923c;">{edu_not_done_non_payg} ({pct(edu_not_done_non_payg, len(edu_not_done))}%)</td>
+          <td style="color:#f87171;">{edu_not_done_no_recharge} ({pct(edu_not_done_no_recharge, len(edu_not_done))}%)</td>
+        </tr>
+        <tr style="border-top:2px solid #94a3b8;">
+          <td style="text-align:left;font-weight:700;">Total (50 Mbps Due)</td>
+          <td style="font-weight:700;">{edu_total}</td>
+          <td style="font-weight:700;color:#22d3ee;">{edu_done_payg + edu_not_done_payg}</td>
+          <td style="font-weight:700;color:#fb923c;">{edu_done_non_payg + edu_not_done_non_payg}</td>
+          <td style="font-weight:700;color:#f87171;">{edu_done_no_recharge + edu_not_done_no_recharge}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <!-- ── Daily Cohort Trend (full width chart) ── -->
 <div class="chart-grid">
   <div class="chart-box chart-full" id="dailyChart"></div>
@@ -611,6 +667,26 @@ Plotly.newPlot('dailyChart', [
   xaxis: {{ ...darkLayout.xaxis, tickangle: -45 }},
   barmode: 'group',
   height: 450
+}}, cfg);
+
+// ── Education Funnel Chart (50 Mbps) ──
+const eduLabels = {json.dumps(edu_funnel_labels)};
+const eduDoneVals = {json.dumps(edu_funnel_done_vals)};
+const eduNotDoneVals = {json.dumps(edu_funnel_not_done_vals)};
+
+Plotly.newPlot('eduFunnelChart', [
+  {{ x: eduLabels, y: eduDoneVals, type: 'bar', name: 'Education Completed',
+     marker: {{ color: '#4ade80' }},
+     text: eduDoneVals.map(String), textposition: 'auto', textfont: {{ size: 11, color: '#fff' }} }},
+  {{ x: eduLabels, y: eduNotDoneVals, type: 'bar', name: 'Education Not Completed',
+     marker: {{ color: '#f87171' }},
+     text: eduNotDoneVals.map(String), textposition: 'auto', textfont: {{ size: 11, color: '#fff' }} }}
+], {{
+  ...darkLayout,
+  title: {{ text: 'Education vs Recharge Outcome (50 Mbps Due)', font: {{ size: 13 }} }},
+  yaxis: {{ ...darkLayout.yaxis, title: 'Customers' }},
+  xaxis: {{ ...darkLayout.xaxis, tickangle: 0 }},
+  barmode: 'group'
 }}, cfg);
 """
 
