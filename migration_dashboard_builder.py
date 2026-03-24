@@ -180,7 +180,7 @@ ORDER BY qc.due_date, qc.nas_id
 print("Fetching PAYG Migration data from Metabase...")
 payload = json.dumps({
     'database': DB_ID, 'type': 'native', 'native': {'query': SQL_QUERY},
-    'constraints': {'max-results': 50000, 'max-results-bare-rows': 50000}
+    'constraints': {'max-results': 200000, 'max-results-bare-rows': 200000}
 }).encode()
 req = urllib.request.Request(METABASE_URL, data=payload, headers={
     'x-api-key': api_key, 'Content-Type': 'application/json'
@@ -191,12 +191,12 @@ rows = data['data']['rows']
 cols = [c['name'] for c in data['data']['cols']]
 print(f"Fetched {len(rows)} rows, columns: {cols}")
 
-# Parse into list of dicts
+# Parse into list of dicts (lowercase keys for consistency)
 records = []
 for r in rows:
     rec = {}
     for i, c in enumerate(cols):
-        rec[c] = r[i]
+        rec[c.lower()] = r[i]
     records.append(rec)
 
 # Safe percentage helper
