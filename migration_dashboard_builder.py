@@ -360,9 +360,14 @@ def edu_day_metrics(customers_list, date_filter=None):
     no_rech = edu_count - payg - non_payg
     return {
         'edu_count': edu_count,
-        'payg': payg, 'payg_pct': pct(payg, edu_count),
-        'non_payg': non_payg, 'non_payg_pct': pct(non_payg, edu_count),
-        'no_recharge': no_rech, 'no_recharge_pct': pct(no_rech, edu_count),
+        'payg': payg,
+        'payg_pct': pct(payg, edu_count),               # % of edu-complete who selected PayG
+        'non_payg': non_payg,
+        'non_payg_pct': pct(non_payg, edu_count),        # % of edu-complete who selected NonPayG
+        'no_recharge': no_rech,
+        'no_recharge_pct': pct(no_rech, edu_count),      # % of edu-complete with no recharge
+        'payg_payment_pct': pct(payg, payg) if payg else 0.0,           # of PayG selected, % payment done (100% with recharge data)
+        'non_payg_payment_pct': pct(non_payg, non_payg) if non_payg else 0.0,  # same
     }
 
 # WTD = education_date >= week_start
@@ -383,35 +388,55 @@ for d in last_7:
     short_label = datetime.strptime(d, '%Y-%m-%d').strftime('%b %d')
     edu_table_cols.append((short_label, edu_days[d]))
 
-# Build HTML rows for the funnel table
+# Build HTML rows for the funnel table (matching Metabase screenshot format)
 def edu_funnel_table_html():
-    header = '<tr><th style="text-align:left;min-width:200px;">Metric</th>'
+    header = '<tr><th style="text-align:left;min-width:220px;">EDUCATION COMPLETE</th>'
     for label, _ in edu_table_cols:
         header += f'<th>{label}</th>'
     header += '</tr>'
 
-    def row(label, key, style=''):
+    def val_row(label, key, style=''):
         r = f'<tr><td style="text-align:left;{style}">{label}</td>'
         for _, m in edu_table_cols:
             r += f'<td>{m[key]}</td>'
         r += '</tr>'
         return r
 
-    def pct_row(label, key, style=''):
+    def pct_val_row(label, key, style=''):
         r = f'<tr><td style="text-align:left;{style}">{label}</td>'
         for _, m in edu_table_cols:
-            r += f'<td>{m[key]}%</td>'
+            r += f'<td>{m[key]}</td>'
         r += '</tr>'
         return r
 
     rows = ''
-    rows += row('0. Education Complete', 'edu_count', 'font-weight:700;')
-    rows += pct_row('1a. PayG Selected %', 'payg_pct', 'color:#22d3ee;padding-left:16px;')
-    rows += pct_row('1b. NonPayG Selected %', 'non_payg_pct', 'color:#fb923c;padding-left:16px;')
-    rows += pct_row('1c. No Recharge %', 'no_recharge_pct', 'color:#f87171;padding-left:16px;')
-    rows += row('2. PayG Recharge (count)', 'payg', 'color:#22d3ee;font-weight:600;')
-    rows += row('3. NonPayG Recharge (count)', 'non_payg', 'color:#fb923c;font-weight:600;')
-    rows += row('4. No Recharge (count)', 'no_recharge', 'color:#f87171;font-weight:600;')
+    # Row 0: Education Complete (count)
+    rows += val_row('0. Education Complete', 'edu_count', 'font-weight:700;')
+    # Row 1a: Education Complete (%) = 100%
+    rows += '<tr><td style="text-align:left;padding-left:16px;">1a. Education Complete (%)</td>'
+    for _, m in edu_table_cols:
+        rows += f'<td>100</td>' if m['edu_count'] > 0 else '<td>0</td>'
+    rows += '</tr>'
+    # Row 1b: PayG Selected % (of edu-complete)
+    rows += pct_val_row('1b. PayG Selected %', 'payg_pct', 'color:#22d3ee;padding-left:16px;')
+    # Row 1c: NonPayG Selected % (of edu-complete)
+    rows += pct_val_row('1c. NonPayG Selected %', 'non_payg_pct', 'color:#fb923c;padding-left:16px;')
+    # Row 1d: No Recharge % (of edu-complete)
+    rows += pct_val_row('1d. No Recharge %', 'no_recharge_pct', 'color:#f87171;padding-left:16px;')
+    # Row 2a: PayG Selected (%) = 100% base
+    rows += '<tr><td style="text-align:left;color:#22d3ee;font-weight:600;">2a. PayG Selected (%)</td>'
+    for _, m in edu_table_cols:
+        rows += f'<td>100</td>' if m['payg'] > 0 else '<td>0</td>'
+    rows += '</tr>'
+    # Row 2b: PayG Count
+    rows += val_row('2b. PayG Recharge Count', 'payg', 'color:#22d3ee;padding-left:16px;')
+    # Row 3a: NonPayG Selected (%) = 100% base
+    rows += '<tr><td style="text-align:left;color:#fb923c;font-weight:600;">3a. NonPayG Selected (%)</td>'
+    for _, m in edu_table_cols:
+        rows += f'<td>100</td>' if m['non_payg'] > 0 else '<td>0</td>'
+    rows += '</tr>'
+    # Row 3b: NonPayG Count
+    rows += val_row('3b. NonPayG Recharge Count', 'non_payg', 'color:#fb923c;padding-left:16px;')
 
     return header, rows
 
