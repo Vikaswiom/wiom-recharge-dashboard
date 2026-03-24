@@ -30,70 +30,143 @@ if not api_key:
 
 SQL_QUERY = """with installs_and_free_plan as(
 select * from(
-    select mobile, idmaker(shard,0,router_nas_id) as lng_nas_id,
+    select
+    mobile,
+    router_nas_id as lng_nas_id,
     cast(OTP_ISSUED_TIME + interval '330 minute' as date) as install_date,
     OTP_ISSUED_TIME + interval '330 minute' as INSTALL_TIME,
     OTP_ISSUED_TIME + interval '330 minute' as free_plan_start_time,
     OTP_EXPIRY_TIME + interval '330 minute' as free_plan_end_time
-    from T_ROUTER_USER_MAPPING WHERE otp = 'DONE' and store_group_id = 0
-    and device_limit > 1 and mobile > '5999999999'
+    from T_ROUTER_USER_MAPPING
+    WHERE
+    otp = 'DONE'
+    and store_group_id = 0
+    and device_limit > 1
+    and mobile > '5999999999'
     qualify row_number() over(PARTITION by lng_nas_id order by OTP_EXPIRY_TIME) = 1
-    ) where install_date >= '2026-01-26' and mobile not in('6900099267','7679376747')
+    )
+    where install_date >= '2026-01-26'
+    and mobile not in('6900099267','7679376747')
 ),
 free_plan_usage AS (
-    SELECT i.lng_nas_id, i.install_date, i.install_time, i.free_plan_end_time,
-        round(SUM(CASE WHEN u.hour_start >= i.install_time AND u.hour_start < DATEADD(HOUR, 48, i.install_time)
-                THEN COALESCE(u.total_bytes_hourly, 0) ELSE 0 END) / (1024.0*1024.0*1024.0),2) AS gb_48h
+    SELECT
+        i.lng_nas_id,
+        i.install_date,
+        i.install_time,
+        i.free_plan_end_time,
+        round(SUM(
+            CASE
+                WHEN u.hour_start >= i.install_time
+                 AND u.hour_start <  DATEADD(HOUR, 48, i.install_time)
+                THEN COALESCE(u.total_bytes_hourly, 0)
+                ELSE 0
+            END
+        ) / (1024.0*1024.0*1024.0),2) AS gb_48h
     FROM installs_and_free_plan i
-    LEFT JOIN HOURLY_USAGE_PRORATED_DT u ON u.nasid = i.lng_nas_id
-       AND u.hour_start >= i.install_time AND u.hour_start < DATEADD(HOUR, 48, i.install_time)
+    LEFT JOIN HOURLY_USAGE_PRORATED_DT u
+        ON u.nasid = i.lng_nas_id
+       AND u.hour_start >= i.install_time
+       AND u.hour_start <  DATEADD(HOUR, 48, i.install_time)
     GROUP BY 1,2,3,4
 ),
 first_paid_plan AS (
-    SELECT idmaker(trum.shard,0,trum.router_nas_id) AS trum_nas,
+    SELECT
+        trum.router_nas_id AS trum_nas,
         OTP_ISSUED_TIME + interval '300 minute' AS paid_plan_start_time,
         OTP_EXPIRY_TIME + interval '330 minute' AS paid_plan_end_time,
         tpc.TIME_LIMIT/86400 AS paid_plan_duration_days,
         ROW_NUMBER() OVER (PARTITION BY trum_nas ORDER BY (OTP_ISSUED_TIME + interval '300 minute')) AS rn
-    FROM T_ROUTER_USER_MAPPING trum LEFT JOIN T_PLAN_CONFIGURATION tpc ON tpc.id = trum.SELECTED_PLAN_ID
-    WHERE otp = 'DONE' AND store_group_id = 0 AND device_limit > 1 AND mobile > '5999999999' QUALIFY rn = 2
+    FROM T_ROUTER_USER_MAPPING trum
+    LEFT JOIN T_PLAN_CONFIGURATION tpc
+        ON tpc.id = trum.SELECTED_PLAN_ID
+    WHERE otp = 'DONE'
+      AND store_group_id = 0
+      AND device_limit > 1
+      AND mobile > '5999999999'
+    QUALIFY rn = 2
 ),
 first_ping_after_install AS (
-    SELECT i.lng_nas_id, MIN(h.FIRST_PING_TS_IST) AS first_ping_ts_after_install_ist
-    FROM installs_and_free_plan i LEFT JOIN HOURLY_DEVICE_PING_HEALTH_VW h
-        ON h.nas_id = i.lng_nas_id AND h.HOUR_START_IST >= DATE_TRUNC('hour', i.install_time) AND h.FIRST_PING_TS_IST IS NOT NULL
+    SELECT
+        i.lng_nas_id,
+        MIN(h.FIRST_PING_TS_IST) AS first_ping_ts_after_install_ist
+    FROM installs_and_free_plan i
+    LEFT JOIN HOURLY_DEVICE_PING_HEALTH_VW h
+        ON h.nas_id = i.lng_nas_id
+       AND h.HOUR_START_IST >= DATE_TRUNC('hour', i.install_time)
+       AND h.FIRST_PING_TS_IST IS NOT NULL
     GROUP BY 1
 ),
 first_ping_after_paid AS (
-    SELECT i.lng_nas_id, MIN(h.FIRST_PING_TS_IST) AS first_ping_ts_after_paid_plan_ist
-    FROM installs_and_free_plan i LEFT JOIN first_paid_plan fpp ON fpp.trum_nas = i.lng_nas_id
-    LEFT JOIN HOURLY_DEVICE_PING_HEALTH_VW h ON h.nas_id = i.lng_nas_id
-       AND fpp.paid_plan_start_time IS NOT NULL AND h.HOUR_START_IST >= DATE_TRUNC('hour', fpp.paid_plan_start_time) AND h.FIRST_PING_TS_IST IS NOT NULL
+    SELECT
+        i.lng_nas_id,
+        MIN(h.FIRST_PING_TS_IST) AS first_ping_ts_after_paid_plan_ist
+    FROM installs_and_free_plan i
+    LEFT JOIN first_paid_plan fpp
+        ON fpp.trum_nas = i.lng_nas_id
+    LEFT JOIN HOURLY_DEVICE_PING_HEALTH_VW h
+        ON h.nas_id = i.lng_nas_id
+       AND fpp.paid_plan_start_time IS NOT NULL
+       AND h.HOUR_START_IST >= DATE_TRUNC('hour', fpp.paid_plan_start_time)
+       AND h.FIRST_PING_TS_IST IS NOT NULL
     GROUP BY 1
 ),
 install_enriched AS (
-    SELECT fpu.lng_nas_id, fpu.install_date, fpu.install_time, fpp.paid_plan_start_time,
-        fpp.paid_plan_duration_days, TRY_TO_NUMBER(ROUND(fpp.paid_plan_duration_days, 0)) AS paid_plan_duration_int,
-        fpu.gb_48h, fpi.first_ping_ts_after_install_ist, fppg.first_ping_ts_after_paid_plan_ist, fpu.free_plan_end_time,
-        IFF(fpi.first_ping_ts_after_install_ist IS NULL, NULL,
-            IFF(DATEDIFF('second', fpu.install_time, fpi.first_ping_ts_after_install_ist) < 0, 2.5,
-                DATEDIFF('second', fpu.install_time, fpi.first_ping_ts_after_install_ist) / 60.0)) AS ping_up_time_post_install_mins,
-        DATEDIFF('second', fpu.free_plan_end_time, fpp.paid_plan_start_time) / 3600.0 AS recharge_delay_first_paid_plan_hrs,
-        IFF(fpp.paid_plan_start_time IS NULL OR fppg.first_ping_ts_after_paid_plan_ist IS NULL, NULL,
-            IFF(DATEDIFF('second', fpp.paid_plan_start_time, fppg.first_ping_ts_after_paid_plan_ist) < 0, 2.5,
-                DATEDIFF('second', fpp.paid_plan_start_time, fppg.first_ping_ts_after_paid_plan_ist) / 60.0)) AS first_recharge_ping_delay_mins
-    FROM free_plan_usage fpu LEFT JOIN first_paid_plan fpp ON fpp.trum_nas = fpu.lng_nas_id
-    LEFT JOIN first_ping_after_install fpi ON fpi.lng_nas_id = fpu.lng_nas_id
-    LEFT JOIN first_ping_after_paid fppg ON fppg.lng_nas_id = fpu.lng_nas_id
+    SELECT
+        fpu.lng_nas_id,
+        fpu.install_date,
+        fpu.install_time,
+        fpp.paid_plan_start_time,
+        fpp.paid_plan_duration_days,
+        TRY_TO_NUMBER(ROUND(fpp.paid_plan_duration_days, 0)) AS paid_plan_duration_int,
+        fpu.gb_48h,
+        fpi.first_ping_ts_after_install_ist,
+        fppg.first_ping_ts_after_paid_plan_ist,
+        fpu.free_plan_end_time,
+        IFF(
+            fpi.first_ping_ts_after_install_ist IS NULL,
+            NULL,
+            IFF(
+                DATEDIFF('second', fpu.install_time, fpi.first_ping_ts_after_install_ist) < 0,
+                2.5,
+                DATEDIFF('second', fpu.install_time, fpi.first_ping_ts_after_install_ist) / 60.0
+            )
+        ) AS ping_up_time_post_install_mins,
+        DATEDIFF('second', fpu.free_plan_end_time, fpp.paid_plan_start_time) / 3600.0
+            AS recharge_delay_first_paid_plan_hrs,
+        IFF(
+            fpp.paid_plan_start_time IS NULL OR fppg.first_ping_ts_after_paid_plan_ist IS NULL,
+            NULL,
+            IFF(
+                DATEDIFF('second', fpp.paid_plan_start_time, fppg.first_ping_ts_after_paid_plan_ist) < 0,
+                2.5,
+                DATEDIFF('second', fpp.paid_plan_start_time, fppg.first_ping_ts_after_paid_plan_ist) / 60.0
+            )
+        ) AS first_recharge_ping_delay_mins
+    FROM free_plan_usage fpu
+    LEFT JOIN first_paid_plan fpp
+        ON fpp.trum_nas = fpu.lng_nas_id
+    LEFT JOIN first_ping_after_install fpi
+        ON fpi.lng_nas_id = fpu.lng_nas_id
+    LEFT JOIN first_ping_after_paid fppg
+        ON fppg.lng_nas_id = fpu.lng_nas_id
 ),
 plan_sequence AS (
-    SELECT idmaker(trum.shard,0,trum.router_nas_id) AS lng_nas_id,
+    SELECT
+        trum.router_nas_id AS lng_nas_id,
         OTP_ISSUED_TIME + interval '330 minute' AS plan_start_time,
         OTP_EXPIRY_TIME + interval '330 minute' AS plan_end_time,
         tpc.TIME_LIMIT / 86400 AS plan_duration_days,
-        ROW_NUMBER() OVER (PARTITION BY idmaker(trum.shard,0,trum.router_nas_id) ORDER BY OTP_ISSUED_TIME) AS plan_number
-    FROM T_ROUTER_USER_MAPPING trum LEFT JOIN T_PLAN_CONFIGURATION tpc ON tpc.id = trum.SELECTED_PLAN_ID
-    WHERE otp = 'DONE' AND store_group_id = 0 AND device_limit > 1 AND mobile > '5999999999'
+        ROW_NUMBER() OVER (
+            PARTITION BY trum.router_nas_id
+            ORDER BY OTP_ISSUED_TIME
+        ) AS plan_number
+    FROM T_ROUTER_USER_MAPPING trum
+    LEFT JOIN T_PLAN_CONFIGURATION tpc
+        ON tpc.id = trum.SELECTED_PLAN_ID
+    WHERE otp = 'DONE'
+      AND store_group_id = 0
+      AND device_limit > 1
+      AND mobile > '5999999999'
 ),
 final as (select *,ROW_NUMBER() over (PARTITION by lng_nas_id order by plan_start_time) as recharge_number
 from (select a.lng_nas_id, a.install_time,
