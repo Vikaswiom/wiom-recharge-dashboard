@@ -1,6 +1,6 @@
 """PAYG Migration Dashboard — nPayG→PayG migration tracking (CI version)"""
 import json, urllib.request, ssl, os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 ctx = ssl.create_default_context()
 
@@ -143,10 +143,13 @@ nas_settings AS (
 ),
 
 education_events AS (
-    SELECT DISTINCT TRY_TO_NUMBER(NULLIF(nasid_long, '')) AS nas_id
+    SELECT
+        TRY_TO_NUMBER(NULLIF(nasid_long, '')) AS nas_id,
+        MIN(TO_DATE(timestamp)) AS education_date
     FROM prod_db.public.ct_customer_payg_migration_events_mv
     WHERE event_name = 'migration_50mbps_education_complete'
       AND TRY_TO_NUMBER(NULLIF(nasid_long, '')) IS NOT NULL
+    GROUP BY 1
 ),
 
 supply AS (
@@ -167,7 +170,8 @@ SELECT
     fp.migrated_plan_days,
     fp.migrated_plan_price,
     COALESCE(ns.nas_cs_id, -1) AS nas_setting_id,
-    CASE WHEN ee.nas_id IS NOT NULL THEN 1 ELSE 0 END AS education_completed
+    CASE WHEN ee.nas_id IS NOT NULL THEN 1 ELSE 0 END AS education_completed,
+    TO_CHAR(ee.education_date, 'YYYY-MM-DD') AS education_date
 FROM qualified_customers qc
 LEFT JOIN first_any fa ON qc.nas_id = fa.nas_id
 LEFT JOIN first_payg fp ON qc.nas_id = fp.nas_id
@@ -333,6 +337,85 @@ edu_not_done_no_recharge = len(edu_not_done) - edu_not_done_payg - edu_not_done_
 edu_funnel_labels = ['PAYG Recharge', 'Non-PAYG Recharge', 'No Recharge']
 edu_funnel_done_vals = [edu_done_payg, edu_done_non_payg, edu_done_no_recharge]
 edu_funnel_not_done_vals = [edu_not_done_payg, edu_not_done_non_payg, edu_not_done_no_recharge]
+
+# ── 6d. Day-wise Education Funnel Table (like Metabase format) ──
+now_ist = datetime.utcnow() + timedelta(hours=5, minutes=30)
+today = now_ist.date()
+
+# Get last 7 days
+last_7 = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7, 0, -1)]
+# Week boundaries
+week_start = (today - timedelta(days=today.weekday())).strftime('%Y-%m-%d')  # Monday
+
+# Group edu-completed 50 Mbps due customers by education_date
+def edu_day_metrics(customers_list, date_filter=None):
+    """Compute funnel metrics for a filtered set of edu-completed customers."""
+    if date_filter:
+        subset = [r for r in customers_list if r.get('education_date') and r['education_date'][:10] == date_filter]
+    else:
+        subset = customers_list  # all
+    edu_count = len(subset)
+    payg = sum(1 for r in subset if r['has_migrated'] == 1)
+    non_payg = sum(1 for r in subset if r['has_recharged'] == 1 and r['has_migrated'] != 1)
+    no_rech = edu_count - payg - non_payg
+    return {
+        'edu_count': edu_count,
+        'payg': payg, 'payg_pct': pct(payg, edu_count),
+        'non_payg': non_payg, 'non_payg_pct': pct(non_payg, edu_count),
+        'no_recharge': no_rech, 'no_recharge_pct': pct(no_rech, edu_count),
+    }
+
+# WTD = education_date >= week_start
+edu_wtd_list = [r for r in edu_done if r.get('education_date') and r['education_date'][:10] >= week_start]
+edu_wtd = edu_day_metrics(edu_wtd_list)
+
+# Overall (all edu-completed due 50 Mbps)
+edu_overall = edu_day_metrics(edu_done)
+
+# Per-day for last 7 days
+edu_days = {}
+for d in last_7:
+    edu_days[d] = edu_day_metrics(edu_done, d)
+
+# Build day-wise table columns: Overall | WTD | D1..D7
+edu_table_cols = [('Overall', edu_overall), ('WTD', edu_wtd)]
+for d in last_7:
+    short_label = datetime.strptime(d, '%Y-%m-%d').strftime('%b %d')
+    edu_table_cols.append((short_label, edu_days[d]))
+
+# Build HTML rows for the funnel table
+def edu_funnel_table_html():
+    header = '<tr><th style="text-align:left;min-width:200px;">Metric</th>'
+    for label, _ in edu_table_cols:
+        header += f'<th>{label}</th>'
+    header += '</tr>'
+
+    def row(label, key, style=''):
+        r = f'<tr><td style="text-align:left;{style}">{label}</td>'
+        for _, m in edu_table_cols:
+            r += f'<td>{m[key]}</td>'
+        r += '</tr>'
+        return r
+
+    def pct_row(label, key, style=''):
+        r = f'<tr><td style="text-align:left;{style}">{label}</td>'
+        for _, m in edu_table_cols:
+            r += f'<td>{m[key]}%</td>'
+        r += '</tr>'
+        return r
+
+    rows = ''
+    rows += row('0. Education Complete', 'edu_count', 'font-weight:700;')
+    rows += pct_row('1a. PayG Selected %', 'payg_pct', 'color:#22d3ee;padding-left:16px;')
+    rows += pct_row('1b. NonPayG Selected %', 'non_payg_pct', 'color:#fb923c;padding-left:16px;')
+    rows += pct_row('1c. No Recharge %', 'no_recharge_pct', 'color:#f87171;padding-left:16px;')
+    rows += row('2. PayG Recharge (count)', 'payg', 'color:#22d3ee;font-weight:600;')
+    rows += row('3. NonPayG Recharge (count)', 'non_payg', 'color:#fb923c;font-weight:600;')
+    rows += row('4. No Recharge (count)', 'no_recharge', 'color:#f87171;font-weight:600;')
+
+    return header, rows
+
+edu_table_header, edu_table_rows = edu_funnel_table_html()
 
 # ── 7. Daily cohort trend ──
 daily = {}
@@ -556,6 +639,17 @@ html = f"""<!DOCTYPE html>
         </tr>
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- ── Day-wise Education Funnel Table ── -->
+<h2 class="section-title">Day-wise Education Funnel (50 Mbps — by Education Completion Date)</h2>
+<div class="table-box">
+  <div style="overflow-x:auto;">
+  <table style="font-size:0.78rem;">
+    <thead>{edu_table_header}</thead>
+    <tbody>{edu_table_rows}</tbody>
+  </table>
   </div>
 </div>
 
