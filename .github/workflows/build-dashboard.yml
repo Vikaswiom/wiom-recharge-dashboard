@@ -46,6 +46,11 @@ jobs:
           METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
         run: python put_dashboard_builder.py
 
+      - name: Build Migration dashboard
+        env:
+          METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
+        run: python migration_dashboard_builder.py
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
