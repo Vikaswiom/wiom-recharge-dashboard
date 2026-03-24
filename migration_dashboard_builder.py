@@ -519,8 +519,12 @@ html = f"""<!DOCTYPE html>
 <!-- ── Education Funnel (50 Mbps Due) ── -->
 <h2 class="section-title">Education &amp; Recharge Funnel (50 Mbps Due Customers)</h2>
 <div class="kpi-row" style="margin-bottom:12px;">
+  <div class="kpi"><div class="val">{edu_total}</div><div class="lbl">Total 50 Mbps Due</div></div>
   <div class="kpi" style="border-left:3px solid #4ade80;"><div class="val" style="color:#4ade80;">{edu_completed}</div><div class="lbl">Education Completed ({pct(edu_completed, edu_total)}%)</div></div>
-  <div class="kpi" style="border-left:3px solid #f87171;"><div class="val" style="color:#f87171;">{edu_total - edu_completed}</div><div class="lbl">Not Completed ({pct(edu_total - edu_completed, edu_total)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #f87171;"><div class="val" style="color:#f87171;">{edu_total - edu_completed}</div><div class="lbl">Education Not Completed ({pct(edu_total - edu_completed, edu_total)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #22d3ee;"><div class="val" style="color:#22d3ee;">{edu_done_payg + edu_not_done_payg}</div><div class="lbl">PAYG Selected ({pct(edu_done_payg + edu_not_done_payg, edu_total)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #fb923c;"><div class="val" style="color:#fb923c;">{edu_done_non_payg + edu_not_done_non_payg}</div><div class="lbl">Non-PAYG Selected ({pct(edu_done_non_payg + edu_not_done_non_payg, edu_total)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #94a3b8;"><div class="val" style="color:#94a3b8;">{edu_done_no_recharge + edu_not_done_no_recharge}</div><div class="lbl">No Recharge ({pct(edu_done_no_recharge + edu_not_done_no_recharge, edu_total)}%)</div></div>
 </div>
 <div class="chart-grid">
   <div class="chart-box" id="eduFunnelChart"></div>
