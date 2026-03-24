@@ -154,6 +154,9 @@ total_bug = sum(resolved_bug)
 total_self_created = sum(self_created)
 total_system_created = total_tickets - total_self_created
 
+# Safe percentage helper (avoids ZeroDivisionError when no data)
+def pct(part, whole): return round(part * 100 / whole, 1) if whole else 0.0
+
 # Build HTML
 html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -194,15 +197,15 @@ html = f"""<!DOCTYPE html>
 
 <div class="kpi-row">
   <div class="kpi"><div class="val">{total_tickets}</div><div class="lbl">Total Tickets</div></div>
-  <div class="kpi" style="border-left:3px solid #e879f9;"><div class="val" style="color:#e879f9;">{total_self_created}</div><div class="lbl">Self Created ({round(total_self_created*100/total_tickets,1)}%)</div></div>
-  <div class="kpi"><div class="val">{total_system_created}</div><div class="lbl">System Created ({round(total_system_created*100/total_tickets,1)}%)</div></div>
-  <div class="kpi green"><div class="val">{total_resolved}</div><div class="lbl">Resolved ({round(total_resolved*100/total_tickets,1)}%)</div></div>
-  <div class="kpi" style="border-left:3px solid #22d3ee;"><div class="val" style="color:#22d3ee;">{total_recharged}</div><div class="lbl">Cx Recharged ({round(total_recharged*100/total_tickets,1)}%)</div></div>
-  <div class="kpi" style="border-left:3px solid #34d399;"><div class="val" style="color:#34d399;">{total_recovered}</div><div class="lbl">Router Recovered ({round(total_recovered*100/total_tickets,1)}%)</div></div>
-  <div class="kpi" style="border-left:3px solid #fb923c;"><div class="val" style="color:#fb923c;">{total_bug}</div><div class="lbl">Bug ({round(total_bug*100/total_tickets,1)}%)</div></div>
-  <div class="kpi red"><div class="val">{total_unresolved}</div><div class="lbl">Unresolved ({round(total_unresolved*100/total_tickets,1)}%)</div></div>
-  <div class="kpi amber"><div class="val">{total_assigned}</div><div class="lbl">Assigned ({round(total_assigned*100/total_tickets,1)}%)</div></div>
-  <div class="kpi purple"><div class="val">{total_unassigned}</div><div class="lbl">Unassigned ({round(total_unassigned*100/total_tickets,1)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #e879f9;"><div class="val" style="color:#e879f9;">{total_self_created}</div><div class="lbl">Self Created ({pct(total_self_created, total_tickets)}%)</div></div>
+  <div class="kpi"><div class="val">{total_system_created}</div><div class="lbl">System Created ({pct(total_system_created, total_tickets)}%)</div></div>
+  <div class="kpi green"><div class="val">{total_resolved}</div><div class="lbl">Resolved ({pct(total_resolved, total_tickets)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #22d3ee;"><div class="val" style="color:#22d3ee;">{total_recharged}</div><div class="lbl">Cx Recharged ({pct(total_recharged, total_tickets)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #34d399;"><div class="val" style="color:#34d399;">{total_recovered}</div><div class="lbl">Router Recovered ({pct(total_recovered, total_tickets)}%)</div></div>
+  <div class="kpi" style="border-left:3px solid #fb923c;"><div class="val" style="color:#fb923c;">{total_bug}</div><div class="lbl">Bug ({pct(total_bug, total_tickets)}%)</div></div>
+  <div class="kpi red"><div class="val">{total_unresolved}</div><div class="lbl">Unresolved ({pct(total_unresolved, total_tickets)}%)</div></div>
+  <div class="kpi amber"><div class="val">{total_assigned}</div><div class="lbl">Assigned ({pct(total_assigned, total_tickets)}%)</div></div>
+  <div class="kpi purple"><div class="val">{total_unassigned}</div><div class="lbl">Unassigned ({pct(total_unassigned, total_tickets)}%)</div></div>
   <div class="kpi"><div class="val">{round(avg_daily,1)}</div><div class="lbl">Avg Daily Tickets</div></div>
 </div>
 
