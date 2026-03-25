@@ -195,6 +195,261 @@ rows = data['data']['rows']
 cols = [c['name'] for c in data['data']['cols']]
 print(f"Fetched {len(rows)} rows, columns: {cols}")
 
+# ── Education Funnel Query (CleverTap events) ──
+EDU_FUNNEL_QUERY = """
+WITH education AS (
+    SELECT
+        profile_identity AS mobile,
+        MIN(TO_TIMESTAMP(timestamp)) AS education_ts,
+        DATE(TO_TIMESTAMP(timestamp)) AS dt
+    FROM prod_db.public.ct_customer_payg_migration_events_mv
+    WHERE event_name = 'migration_50mbps_education_complete'
+    GROUP BY profile_identity, DATE(TO_TIMESTAMP(timestamp))
+),
+all_selections AS (
+    SELECT
+        profile_identity AS mobile,
+        TO_TIMESTAMP(timestamp) AS ts,
+        event_name
+    FROM prod_db.public.ct_customer_payg_migration_events_mv
+    WHERE event_name IN ('migration_50mbps_PayG_selected', 'migration_50mbps_NonPayG_selected')
+),
+payments AS (
+    SELECT
+        profile_identity AS mobile,
+        TO_TIMESTAMP(timestamp) AS ts
+    FROM prod_db.public.ct_customer_payg_payment_events_mv
+    WHERE event_name = 'payment_success_page_loaded'
+),
+payg_selection AS (
+    SELECT DISTINCT e.mobile, e.dt
+    FROM education e
+    JOIN all_selections s
+        ON e.mobile = s.mobile
+        AND s.event_name = 'migration_50mbps_PayG_selected'
+        AND s.ts BETWEEN e.education_ts AND e.education_ts + INTERVAL '48 hour'
+),
+nonpayg_selection AS (
+    SELECT DISTINCT e.mobile, e.dt
+    FROM education e
+    JOIN all_selections s
+        ON e.mobile = s.mobile
+        AND s.event_name = 'migration_50mbps_NonPayG_selected'
+        AND s.ts BETWEEN e.education_ts AND e.education_ts + INTERVAL '48 hour'
+),
+last_selection_before_payment AS (
+    SELECT * FROM (
+        SELECT
+            e.mobile,
+            e.dt,
+            s.event_name,
+            ROW_NUMBER() OVER (
+                PARTITION BY e.mobile, p.ts
+                ORDER BY s.ts DESC
+            ) AS rn
+        FROM education e
+        JOIN payments p
+            ON e.mobile = p.mobile
+            AND p.ts BETWEEN e.education_ts AND e.education_ts + INTERVAL '48 hour'
+        JOIN all_selections s
+            ON e.mobile = s.mobile
+            AND s.ts BETWEEN e.education_ts AND p.ts
+    ) WHERE rn = 1
+),
+payg_paid AS (
+    SELECT DISTINCT mobile, dt
+    FROM last_selection_before_payment
+    WHERE event_name = 'migration_50mbps_PayG_selected'
+),
+nonpayg_paid AS (
+    SELECT DISTINCT mobile, dt
+    FROM last_selection_before_payment
+    WHERE event_name = 'migration_50mbps_NonPayG_selected'
+),
+base AS (
+    SELECT
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS edu_wtd,
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS edu_wtd1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS edu_d1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS edu_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS edu_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS edu_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS edu_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS edu_d6,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS edu_d7
+    FROM education
+),
+payg_sel_agg AS (
+    SELECT
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS payg_sel_wtd,
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS payg_sel_wtd1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS payg_sel_d1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS payg_sel_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS payg_sel_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS payg_sel_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS payg_sel_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS payg_sel_d6,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS payg_sel_d7
+    FROM payg_selection
+),
+nonpayg_sel_agg AS (
+    SELECT
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS np_sel_wtd,
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS np_sel_wtd1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS np_sel_d1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS np_sel_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS np_sel_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS np_sel_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS np_sel_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS np_sel_d6,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS np_sel_d7
+    FROM nonpayg_selection
+),
+payg_pay_agg AS (
+    SELECT
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS payg_pay_wtd,
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS payg_pay_wtd1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS payg_pay_d1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS payg_pay_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS payg_pay_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS payg_pay_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS payg_pay_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS payg_pay_d6,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS payg_pay_d7
+    FROM payg_paid
+),
+nonpayg_pay_agg AS (
+    SELECT
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS np_pay_wtd,
+        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS np_pay_wtd1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS np_pay_d1,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS np_pay_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS np_pay_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS np_pay_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS np_pay_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS np_pay_d6,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS np_pay_d7
+    FROM nonpayg_paid
+),
+pivot AS (
+    SELECT * FROM base, payg_sel_agg, nonpayg_sel_agg, payg_pay_agg, nonpayg_pay_agg
+)
+SELECT '0. Education complete' AS metric,
+    edu_wtd AS EDU_WTD, edu_wtd1 AS EDU_WTD1,
+    edu_d1 AS EDU_D1, edu_d2 AS EDU_D2, edu_d3 AS EDU_D3,
+    edu_d4 AS EDU_D4, edu_d5 AS EDU_D5, edu_d6 AS EDU_D6, edu_d7 AS EDU_D7
+FROM pivot
+UNION ALL SELECT '1a. Education complete (%)',
+    100, 100, 100, 100, 100, 100, 100, 100, 100
+FROM pivot
+UNION ALL SELECT '1b. PayG selected %',
+    ROUND(payg_sel_wtd * 100.0 / NULLIF(edu_wtd, 0), 1),
+    ROUND(payg_sel_wtd1 * 100.0 / NULLIF(edu_wtd1, 0), 1),
+    ROUND(payg_sel_d1 * 100.0 / NULLIF(edu_d1, 0), 1),
+    ROUND(payg_sel_d2 * 100.0 / NULLIF(edu_d2, 0), 1),
+    ROUND(payg_sel_d3 * 100.0 / NULLIF(edu_d3, 0), 1),
+    ROUND(payg_sel_d4 * 100.0 / NULLIF(edu_d4, 0), 1),
+    ROUND(payg_sel_d5 * 100.0 / NULLIF(edu_d5, 0), 1),
+    ROUND(payg_sel_d6 * 100.0 / NULLIF(edu_d6, 0), 1),
+    ROUND(payg_sel_d7 * 100.0 / NULLIF(edu_d7, 0), 1)
+FROM pivot
+UNION ALL SELECT '1c. NonPayG selected %',
+    ROUND(np_sel_wtd * 100.0 / NULLIF(edu_wtd, 0), 1),
+    ROUND(np_sel_wtd1 * 100.0 / NULLIF(edu_wtd1, 0), 1),
+    ROUND(np_sel_d1 * 100.0 / NULLIF(edu_d1, 0), 1),
+    ROUND(np_sel_d2 * 100.0 / NULLIF(edu_d2, 0), 1),
+    ROUND(np_sel_d3 * 100.0 / NULLIF(edu_d3, 0), 1),
+    ROUND(np_sel_d4 * 100.0 / NULLIF(edu_d4, 0), 1),
+    ROUND(np_sel_d5 * 100.0 / NULLIF(edu_d5, 0), 1),
+    ROUND(np_sel_d6 * 100.0 / NULLIF(edu_d6, 0), 1),
+    ROUND(np_sel_d7 * 100.0 / NULLIF(edu_d7, 0), 1)
+FROM pivot
+UNION ALL SELECT '2a. PayG selected (%)',
+    100, 100, 100, 100, 100, 100, 100, 100, 100
+FROM pivot
+UNION ALL SELECT '2b. PayG Payment Done %',
+    ROUND(payg_pay_wtd * 100.0 / NULLIF(payg_sel_wtd, 0), 1),
+    ROUND(payg_pay_wtd1 * 100.0 / NULLIF(payg_sel_wtd1, 0), 1),
+    ROUND(payg_pay_d1 * 100.0 / NULLIF(payg_sel_d1, 0), 1),
+    ROUND(payg_pay_d2 * 100.0 / NULLIF(payg_sel_d2, 0), 1),
+    ROUND(payg_pay_d3 * 100.0 / NULLIF(payg_sel_d3, 0), 1),
+    ROUND(payg_pay_d4 * 100.0 / NULLIF(payg_sel_d4, 0), 1),
+    ROUND(payg_pay_d5 * 100.0 / NULLIF(payg_sel_d5, 0), 1),
+    ROUND(payg_pay_d6 * 100.0 / NULLIF(payg_sel_d6, 0), 1),
+    ROUND(payg_pay_d7 * 100.0 / NULLIF(payg_sel_d7, 0), 1)
+FROM pivot
+UNION ALL SELECT '3a. NonPayG selected (%)',
+    100, 100, 100, 100, 100, 100, 100, 100, 100
+FROM pivot
+UNION ALL SELECT '3b. NonPayG Payment Done %',
+    ROUND(np_pay_wtd * 100.0 / NULLIF(np_sel_wtd, 0), 1),
+    ROUND(np_pay_wtd1 * 100.0 / NULLIF(np_sel_wtd1, 0), 1),
+    ROUND(np_pay_d1 * 100.0 / NULLIF(np_sel_d1, 0), 1),
+    ROUND(np_pay_d2 * 100.0 / NULLIF(np_sel_d2, 0), 1),
+    ROUND(np_pay_d3 * 100.0 / NULLIF(np_sel_d3, 0), 1),
+    ROUND(np_pay_d4 * 100.0 / NULLIF(np_sel_d4, 0), 1),
+    ROUND(np_pay_d5 * 100.0 / NULLIF(np_sel_d5, 0), 1),
+    ROUND(np_pay_d6 * 100.0 / NULLIF(np_sel_d6, 0), 1),
+    ROUND(np_pay_d7 * 100.0 / NULLIF(np_sel_d7, 0), 1)
+FROM pivot
+"""
+
+print("Fetching Education Funnel data from Metabase...")
+edu_payload = json.dumps({
+    'database': DB_ID, 'type': 'native', 'native': {'query': EDU_FUNNEL_QUERY},
+    'constraints': {'max-results': 200000, 'max-results-bare-rows': 200000}
+}).encode()
+edu_req = urllib.request.Request(METABASE_URL, data=edu_payload, headers={
+    'x-api-key': api_key, 'Content-Type': 'application/json'
+})
+edu_resp = urllib.request.urlopen(edu_req, context=ctx, timeout=300)
+edu_data = json.loads(edu_resp.read())
+edu_funnel_rows = edu_data['data']['rows']
+edu_funnel_cols = [c['name'] for c in edu_data['data']['cols']]
+print(f"Education Funnel: fetched {len(edu_funnel_rows)} rows, columns: {edu_funnel_cols}")
+
+# Build education funnel HTML table from query results
+funnel_header_html = '<tr>'
+for col_name in edu_funnel_cols:
+    align = 'text-align:left;min-width:220px;' if col_name.lower() == 'metric' else ''
+    funnel_header_html += f'<th style="{align}">{col_name}</th>'
+funnel_header_html += '</tr>'
+
+funnel_rows_html = ''
+for row in edu_funnel_rows:
+    metric = str(row[0]) if row[0] is not None else ''
+    # Determine row style based on metric name
+    if metric.startswith('0.') or metric.startswith('1a.'):
+        metric_style = 'text-align:left;font-weight:700;color:#f1f5f9;'
+    elif metric.startswith('2a.') or metric.startswith('3a.'):
+        # Base 100% rows (2a, 3a)
+        metric_style = 'text-align:left;font-weight:600;'
+        if 'NonPayG' in metric:
+            metric_style += 'color:#fb923c;'
+        elif 'PayG' in metric:
+            metric_style += 'color:#22d3ee;'
+    elif 'NonPayG' in metric:
+        metric_style = 'text-align:left;color:#fb923c;padding-left:16px;'
+    elif 'PayG' in metric:
+        metric_style = 'text-align:left;color:#22d3ee;padding-left:16px;'
+    else:
+        metric_style = 'text-align:left;color:#94a3b8;padding-left:16px;'
+
+    funnel_rows_html += f'<tr><td style="{metric_style}">{metric}</td>'
+    for val in row[1:]:
+        if val is None:
+            funnel_rows_html += '<td>-</td>'
+        else:
+            try:
+                num = float(val)
+                funnel_rows_html += f'<td>{round(num, 1)}</td>'
+            except (ValueError, TypeError):
+                funnel_rows_html += f'<td>{val}</td>'
+    funnel_rows_html += '</tr>\n'
+
+if len(edu_funnel_rows) == 0:
+    funnel_rows_html = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;">No funnel data available</td></tr>'
+
 # Parse into list of dicts (lowercase keys for consistency)
 records = []
 for r in rows:
@@ -321,126 +576,6 @@ edu_total = len(edu_50)
 edu_completed = sum(1 for r in edu_50 if r['education_completed'] == 1)
 edu_pct = pct(edu_completed, edu_total)
 
-# ── 6c. Education Funnel — 50 Mbps due customers breakdown ──
-edu_done = [r for r in edu_50 if r['education_completed'] == 1]
-edu_not_done = [r for r in edu_50 if r['education_completed'] != 1]
-
-edu_done_payg = sum(1 for r in edu_done if r['has_migrated'] == 1)
-edu_done_non_payg = sum(1 for r in edu_done if r['has_recharged'] == 1 and r['has_migrated'] != 1)
-edu_done_no_recharge = len(edu_done) - edu_done_payg - edu_done_non_payg
-
-edu_not_done_payg = sum(1 for r in edu_not_done if r['has_migrated'] == 1)
-edu_not_done_non_payg = sum(1 for r in edu_not_done if r['has_recharged'] == 1 and r['has_migrated'] != 1)
-edu_not_done_no_recharge = len(edu_not_done) - edu_not_done_payg - edu_not_done_non_payg
-
-# Education funnel chart data
-edu_funnel_labels = ['PAYG Recharge', 'Non-PAYG Recharge', 'No Recharge']
-edu_funnel_done_vals = [edu_done_payg, edu_done_non_payg, edu_done_no_recharge]
-edu_funnel_not_done_vals = [edu_not_done_payg, edu_not_done_non_payg, edu_not_done_no_recharge]
-
-# ── 6d. Day-wise Education Funnel Table (like Metabase format) ──
-now_ist = datetime.utcnow() + timedelta(hours=5, minutes=30)
-today = now_ist.date()
-
-# Get last 7 days
-last_7 = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7, 0, -1)]
-# Week boundaries
-week_start = (today - timedelta(days=today.weekday())).strftime('%Y-%m-%d')  # Monday
-
-# Group edu-completed 50 Mbps due customers by education_date
-def edu_day_metrics(customers_list, date_filter=None):
-    """Compute funnel metrics for a filtered set of edu-completed customers."""
-    if date_filter:
-        subset = [r for r in customers_list if r.get('education_date') and r['education_date'][:10] == date_filter]
-    else:
-        subset = customers_list  # all
-    edu_count = len(subset)
-    payg = sum(1 for r in subset if r['has_migrated'] == 1)
-    non_payg = sum(1 for r in subset if r['has_recharged'] == 1 and r['has_migrated'] != 1)
-    no_rech = edu_count - payg - non_payg
-    return {
-        'edu_count': edu_count,
-        'payg': payg,
-        'payg_pct': pct(payg, edu_count),               # % of edu-complete who selected PayG
-        'non_payg': non_payg,
-        'non_payg_pct': pct(non_payg, edu_count),        # % of edu-complete who selected NonPayG
-        'no_recharge': no_rech,
-        'no_recharge_pct': pct(no_rech, edu_count),      # % of edu-complete with no recharge
-        'payg_payment_pct': pct(payg, payg) if payg else 0.0,           # of PayG selected, % payment done (100% with recharge data)
-        'non_payg_payment_pct': pct(non_payg, non_payg) if non_payg else 0.0,  # same
-    }
-
-# WTD = education_date >= week_start
-edu_wtd_list = [r for r in edu_done if r.get('education_date') and r['education_date'][:10] >= week_start]
-edu_wtd = edu_day_metrics(edu_wtd_list)
-
-# Overall (all edu-completed due 50 Mbps)
-edu_overall = edu_day_metrics(edu_done)
-
-# Per-day for last 7 days
-edu_days = {}
-for d in last_7:
-    edu_days[d] = edu_day_metrics(edu_done, d)
-
-# Build day-wise table columns: Overall | WTD | D1..D7
-edu_table_cols = [('Overall', edu_overall), ('WTD', edu_wtd)]
-for d in last_7:
-    short_label = datetime.strptime(d, '%Y-%m-%d').strftime('%b %d')
-    edu_table_cols.append((short_label, edu_days[d]))
-
-# Build HTML rows for the funnel table (matching Metabase screenshot format)
-def edu_funnel_table_html():
-    header = '<tr><th style="text-align:left;min-width:220px;">EDUCATION COMPLETE</th>'
-    for label, _ in edu_table_cols:
-        header += f'<th>{label}</th>'
-    header += '</tr>'
-
-    def val_row(label, key, style=''):
-        r = f'<tr><td style="text-align:left;{style}">{label}</td>'
-        for _, m in edu_table_cols:
-            r += f'<td>{m[key]}</td>'
-        r += '</tr>'
-        return r
-
-    def pct_val_row(label, key, style=''):
-        r = f'<tr><td style="text-align:left;{style}">{label}</td>'
-        for _, m in edu_table_cols:
-            r += f'<td>{m[key]}</td>'
-        r += '</tr>'
-        return r
-
-    rows = ''
-    # Row 0: Education Complete (count)
-    rows += val_row('0. Education Complete', 'edu_count', 'font-weight:700;')
-    # Row 1a: Education Complete (%) = 100%
-    rows += '<tr><td style="text-align:left;padding-left:16px;">1a. Education Complete (%)</td>'
-    for _, m in edu_table_cols:
-        rows += f'<td>100</td>' if m['edu_count'] > 0 else '<td>0</td>'
-    rows += '</tr>'
-    # Row 1b: PayG Selected % (of edu-complete)
-    rows += pct_val_row('1b. PayG Selected %', 'payg_pct', 'color:#22d3ee;padding-left:16px;')
-    # Row 1c: NonPayG Selected % (of edu-complete)
-    rows += pct_val_row('1c. NonPayG Selected %', 'non_payg_pct', 'color:#fb923c;padding-left:16px;')
-    # Row 1d: No Recharge % (of edu-complete)
-    rows += pct_val_row('1d. No Recharge %', 'no_recharge_pct', 'color:#f87171;padding-left:16px;')
-    # Row 2a: PayG Selected (%) = 100% base
-    rows += '<tr><td style="text-align:left;color:#22d3ee;font-weight:600;">2a. PayG Selected (%)</td>'
-    for _, m in edu_table_cols:
-        rows += f'<td>100</td>' if m['payg'] > 0 else '<td>0</td>'
-    rows += '</tr>'
-    # Row 2b: PayG Count
-    rows += val_row('2b. PayG Recharge Count', 'payg', 'color:#22d3ee;padding-left:16px;')
-    # Row 3a: NonPayG Selected (%) = 100% base
-    rows += '<tr><td style="text-align:left;color:#fb923c;font-weight:600;">3a. NonPayG Selected (%)</td>'
-    for _, m in edu_table_cols:
-        rows += f'<td>100</td>' if m['non_payg'] > 0 else '<td>0</td>'
-    rows += '</tr>'
-    # Row 3b: NonPayG Count
-    rows += val_row('3b. NonPayG Recharge Count', 'non_payg', 'color:#fb923c;padding-left:16px;')
-
-    return header, rows
-
-edu_table_header, edu_table_rows = edu_funnel_table_html()
 
 # ── 7. Daily cohort trend ──
 daily = {}
@@ -624,56 +759,13 @@ html = f"""<!DOCTYPE html>
   </div>
 </div>
 
-<!-- ── Education Funnel (50 Mbps Due) ── -->
-<h2 class="section-title">Education &amp; Recharge Funnel (50 Mbps Due Customers)</h2>
-<div class="kpi-row" style="margin-bottom:12px;">
-  <div class="kpi"><div class="val">{edu_total}</div><div class="lbl">Total 50 Mbps Due</div></div>
-  <div class="kpi" style="border-left:3px solid #4ade80;"><div class="val" style="color:#4ade80;">{edu_completed}</div><div class="lbl">Education Completed ({pct(edu_completed, edu_total)}%)</div></div>
-  <div class="kpi" style="border-left:3px solid #f87171;"><div class="val" style="color:#f87171;">{edu_total - edu_completed}</div><div class="lbl">Education Not Completed ({pct(edu_total - edu_completed, edu_total)}%)</div></div>
-  <div class="kpi" style="border-left:3px solid #22d3ee;"><div class="val" style="color:#22d3ee;">{edu_done_payg + edu_not_done_payg}</div><div class="lbl">PAYG Selected ({pct(edu_done_payg + edu_not_done_payg, edu_total)}%)</div></div>
-  <div class="kpi" style="border-left:3px solid #fb923c;"><div class="val" style="color:#fb923c;">{edu_done_non_payg + edu_not_done_non_payg}</div><div class="lbl">Non-PAYG Selected ({pct(edu_done_non_payg + edu_not_done_non_payg, edu_total)}%)</div></div>
-  <div class="kpi" style="border-left:3px solid #94a3b8;"><div class="val" style="color:#94a3b8;">{edu_done_no_recharge + edu_not_done_no_recharge}</div><div class="lbl">No Recharge ({pct(edu_done_no_recharge + edu_not_done_no_recharge, edu_total)}%)</div></div>
-</div>
-<div class="chart-grid">
-  <div class="chart-box" id="eduFunnelChart"></div>
-  <div class="table-box" style="min-height:420px;">
-    <h3 style="margin-bottom:10px; color:#f1f5f9; font-size:1rem;">Education &rarr; Recharge Breakdown</h3>
-    <table>
-      <thead><tr><th style="text-align:left;">Education Status</th><th>Total</th><th style="color:#22d3ee;">PAYG Recharge</th><th style="color:#fb923c;">Non-PAYG Recharge</th><th style="color:#f87171;">No Recharge</th></tr></thead>
-      <tbody>
-        <tr>
-          <td style="text-align:left;font-weight:600;color:#4ade80;">Completed</td>
-          <td>{len(edu_done)}</td>
-          <td style="color:#22d3ee;">{edu_done_payg} ({pct(edu_done_payg, len(edu_done))}%)</td>
-          <td style="color:#fb923c;">{edu_done_non_payg} ({pct(edu_done_non_payg, len(edu_done))}%)</td>
-          <td style="color:#f87171;">{edu_done_no_recharge} ({pct(edu_done_no_recharge, len(edu_done))}%)</td>
-        </tr>
-        <tr>
-          <td style="text-align:left;font-weight:600;color:#f87171;">Not Completed</td>
-          <td>{len(edu_not_done)}</td>
-          <td style="color:#22d3ee;">{edu_not_done_payg} ({pct(edu_not_done_payg, len(edu_not_done))}%)</td>
-          <td style="color:#fb923c;">{edu_not_done_non_payg} ({pct(edu_not_done_non_payg, len(edu_not_done))}%)</td>
-          <td style="color:#f87171;">{edu_not_done_no_recharge} ({pct(edu_not_done_no_recharge, len(edu_not_done))}%)</td>
-        </tr>
-        <tr style="border-top:2px solid #94a3b8;">
-          <td style="text-align:left;font-weight:700;">Total (50 Mbps Due)</td>
-          <td style="font-weight:700;">{edu_total}</td>
-          <td style="font-weight:700;color:#22d3ee;">{edu_done_payg + edu_not_done_payg}</td>
-          <td style="font-weight:700;color:#fb923c;">{edu_done_non_payg + edu_not_done_non_payg}</td>
-          <td style="font-weight:700;color:#f87171;">{edu_done_no_recharge + edu_not_done_no_recharge}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ── Day-wise Education Funnel Table ── -->
-<h2 class="section-title">Day-wise Education Funnel (50 Mbps — by Education Completion Date)</h2>
+<!-- ── Education Funnel (CleverTap Events) ── -->
+<h2 class="section-title">Education &rarr; Plan Selection &rarr; Payment Funnel (50 Mbps)</h2>
 <div class="table-box">
   <div style="overflow-x:auto;">
   <table style="font-size:0.78rem;">
-    <thead>{edu_table_header}</thead>
-    <tbody>{edu_table_rows}</tbody>
+    <thead>{funnel_header_html}</thead>
+    <tbody>{funnel_rows_html}</tbody>
   </table>
   </div>
 </div>
@@ -792,25 +884,6 @@ Plotly.newPlot('dailyChart', [
   height: 450
 }}, cfg);
 
-// ── Education Funnel Chart (50 Mbps) ──
-const eduLabels = {json.dumps(edu_funnel_labels)};
-const eduDoneVals = {json.dumps(edu_funnel_done_vals)};
-const eduNotDoneVals = {json.dumps(edu_funnel_not_done_vals)};
-
-Plotly.newPlot('eduFunnelChart', [
-  {{ x: eduLabels, y: eduDoneVals, type: 'bar', name: 'Education Completed',
-     marker: {{ color: '#4ade80' }},
-     text: eduDoneVals.map(String), textposition: 'auto', textfont: {{ size: 11, color: '#fff' }} }},
-  {{ x: eduLabels, y: eduNotDoneVals, type: 'bar', name: 'Education Not Completed',
-     marker: {{ color: '#f87171' }},
-     text: eduNotDoneVals.map(String), textposition: 'auto', textfont: {{ size: 11, color: '#fff' }} }}
-], {{
-  ...darkLayout,
-  title: {{ text: 'Education vs Recharge Outcome (50 Mbps Due)', font: {{ size: 13 }} }},
-  yaxis: {{ ...darkLayout.yaxis, title: 'Customers' }},
-  xaxis: {{ ...darkLayout.xaxis, tickangle: 0 }},
-  barmode: 'group'
-}}, cfg);
 """
 
 html += """
