@@ -268,129 +268,120 @@ nonpayg_paid AS (
 ),
 base AS (
     SELECT
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS edu_wtd,
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS edu_wtd1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS edu_d1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS edu_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS edu_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS edu_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS edu_d5,
+        COUNT(DISTINCT mobile) AS edu_total,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS edu_d7,
         COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS edu_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS edu_d7
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS edu_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS edu_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS edu_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS edu_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS edu_d1
     FROM education
 ),
 payg_sel_agg AS (
     SELECT
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS payg_sel_wtd,
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS payg_sel_wtd1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS payg_sel_d1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS payg_sel_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS payg_sel_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS payg_sel_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS payg_sel_d5,
+        COUNT(DISTINCT mobile) AS payg_sel_total,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS payg_sel_d7,
         COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS payg_sel_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS payg_sel_d7
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS payg_sel_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS payg_sel_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS payg_sel_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS payg_sel_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS payg_sel_d1
     FROM payg_selection
 ),
 nonpayg_sel_agg AS (
     SELECT
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS np_sel_wtd,
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS np_sel_wtd1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS np_sel_d1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS np_sel_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS np_sel_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS np_sel_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS np_sel_d5,
+        COUNT(DISTINCT mobile) AS np_sel_total,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS np_sel_d7,
         COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS np_sel_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS np_sel_d7
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS np_sel_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS np_sel_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS np_sel_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS np_sel_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS np_sel_d1
     FROM nonpayg_selection
 ),
 payg_pay_agg AS (
     SELECT
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS payg_pay_wtd,
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS payg_pay_wtd1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS payg_pay_d1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS payg_pay_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS payg_pay_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS payg_pay_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS payg_pay_d5,
+        COUNT(DISTINCT mobile) AS payg_pay_total,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS payg_pay_d7,
         COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS payg_pay_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS payg_pay_d7
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS payg_pay_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS payg_pay_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS payg_pay_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS payg_pay_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS payg_pay_d1
     FROM payg_paid
 ),
 nonpayg_pay_agg AS (
     SELECT
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS np_pay_wtd,
-        COUNT(DISTINCT CASE WHEN dt >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 day' AND dt < DATE_TRUNC('week', CURRENT_DATE) THEN mobile END) AS np_pay_wtd1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS np_pay_d1,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS np_pay_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS np_pay_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS np_pay_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS np_pay_d5,
+        COUNT(DISTINCT mobile) AS np_pay_total,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS np_pay_d7,
         COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS np_pay_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS np_pay_d7
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS np_pay_d5,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS np_pay_d4,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS np_pay_d3,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS np_pay_d2,
+        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS np_pay_d1
     FROM nonpayg_paid
 ),
 pivot AS (
     SELECT * FROM base, payg_sel_agg, nonpayg_sel_agg, payg_pay_agg, nonpayg_pay_agg
 )
 SELECT '0. Education complete' AS metric,
-    edu_wtd AS EDU_WTD, edu_wtd1 AS EDU_WTD1,
-    edu_d1 AS EDU_D1, edu_d2 AS EDU_D2, edu_d3 AS EDU_D3,
-    edu_d4 AS EDU_D4, edu_d5 AS EDU_D5, edu_d6 AS EDU_D6, edu_d7 AS EDU_D7
+    edu_total AS "TOTAL",
+    edu_d7 AS "D7", edu_d6 AS "D6", edu_d5 AS "D5",
+    edu_d4 AS "D4", edu_d3 AS "D3", edu_d2 AS "D2", edu_d1 AS "D1"
 FROM pivot
 UNION ALL SELECT '1a. Education complete (%)',
-    100, 100, 100, 100, 100, 100, 100, 100, 100
+    100, 100, 100, 100, 100, 100, 100, 100
 FROM pivot
 UNION ALL SELECT '1b. PayG selected %',
-    ROUND(payg_sel_wtd * 100.0 / NULLIF(edu_wtd, 0), 1),
-    ROUND(payg_sel_wtd1 * 100.0 / NULLIF(edu_wtd1, 0), 1),
-    ROUND(payg_sel_d1 * 100.0 / NULLIF(edu_d1, 0), 1),
-    ROUND(payg_sel_d2 * 100.0 / NULLIF(edu_d2, 0), 1),
-    ROUND(payg_sel_d3 * 100.0 / NULLIF(edu_d3, 0), 1),
-    ROUND(payg_sel_d4 * 100.0 / NULLIF(edu_d4, 0), 1),
-    ROUND(payg_sel_d5 * 100.0 / NULLIF(edu_d5, 0), 1),
+    ROUND(payg_sel_total * 100.0 / NULLIF(edu_total, 0), 1),
+    ROUND(payg_sel_d7 * 100.0 / NULLIF(edu_d7, 0), 1),
     ROUND(payg_sel_d6 * 100.0 / NULLIF(edu_d6, 0), 1),
-    ROUND(payg_sel_d7 * 100.0 / NULLIF(edu_d7, 0), 1)
+    ROUND(payg_sel_d5 * 100.0 / NULLIF(edu_d5, 0), 1),
+    ROUND(payg_sel_d4 * 100.0 / NULLIF(edu_d4, 0), 1),
+    ROUND(payg_sel_d3 * 100.0 / NULLIF(edu_d3, 0), 1),
+    ROUND(payg_sel_d2 * 100.0 / NULLIF(edu_d2, 0), 1),
+    ROUND(payg_sel_d1 * 100.0 / NULLIF(edu_d1, 0), 1)
 FROM pivot
 UNION ALL SELECT '1c. NonPayG selected %',
-    ROUND(np_sel_wtd * 100.0 / NULLIF(edu_wtd, 0), 1),
-    ROUND(np_sel_wtd1 * 100.0 / NULLIF(edu_wtd1, 0), 1),
-    ROUND(np_sel_d1 * 100.0 / NULLIF(edu_d1, 0), 1),
-    ROUND(np_sel_d2 * 100.0 / NULLIF(edu_d2, 0), 1),
-    ROUND(np_sel_d3 * 100.0 / NULLIF(edu_d3, 0), 1),
-    ROUND(np_sel_d4 * 100.0 / NULLIF(edu_d4, 0), 1),
-    ROUND(np_sel_d5 * 100.0 / NULLIF(edu_d5, 0), 1),
+    ROUND(np_sel_total * 100.0 / NULLIF(edu_total, 0), 1),
+    ROUND(np_sel_d7 * 100.0 / NULLIF(edu_d7, 0), 1),
     ROUND(np_sel_d6 * 100.0 / NULLIF(edu_d6, 0), 1),
-    ROUND(np_sel_d7 * 100.0 / NULLIF(edu_d7, 0), 1)
+    ROUND(np_sel_d5 * 100.0 / NULLIF(edu_d5, 0), 1),
+    ROUND(np_sel_d4 * 100.0 / NULLIF(edu_d4, 0), 1),
+    ROUND(np_sel_d3 * 100.0 / NULLIF(edu_d3, 0), 1),
+    ROUND(np_sel_d2 * 100.0 / NULLIF(edu_d2, 0), 1),
+    ROUND(np_sel_d1 * 100.0 / NULLIF(edu_d1, 0), 1)
 FROM pivot
 UNION ALL SELECT '2a. PayG selected (%)',
-    100, 100, 100, 100, 100, 100, 100, 100, 100
+    100, 100, 100, 100, 100, 100, 100, 100
 FROM pivot
 UNION ALL SELECT '2b. PayG Payment Done %',
-    ROUND(payg_pay_wtd * 100.0 / NULLIF(payg_sel_wtd, 0), 1),
-    ROUND(payg_pay_wtd1 * 100.0 / NULLIF(payg_sel_wtd1, 0), 1),
-    ROUND(payg_pay_d1 * 100.0 / NULLIF(payg_sel_d1, 0), 1),
-    ROUND(payg_pay_d2 * 100.0 / NULLIF(payg_sel_d2, 0), 1),
-    ROUND(payg_pay_d3 * 100.0 / NULLIF(payg_sel_d3, 0), 1),
-    ROUND(payg_pay_d4 * 100.0 / NULLIF(payg_sel_d4, 0), 1),
-    ROUND(payg_pay_d5 * 100.0 / NULLIF(payg_sel_d5, 0), 1),
+    ROUND(payg_pay_total * 100.0 / NULLIF(payg_sel_total, 0), 1),
+    ROUND(payg_pay_d7 * 100.0 / NULLIF(payg_sel_d7, 0), 1),
     ROUND(payg_pay_d6 * 100.0 / NULLIF(payg_sel_d6, 0), 1),
-    ROUND(payg_pay_d7 * 100.0 / NULLIF(payg_sel_d7, 0), 1)
+    ROUND(payg_pay_d5 * 100.0 / NULLIF(payg_sel_d5, 0), 1),
+    ROUND(payg_pay_d4 * 100.0 / NULLIF(payg_sel_d4, 0), 1),
+    ROUND(payg_pay_d3 * 100.0 / NULLIF(payg_sel_d3, 0), 1),
+    ROUND(payg_pay_d2 * 100.0 / NULLIF(payg_sel_d2, 0), 1),
+    ROUND(payg_pay_d1 * 100.0 / NULLIF(payg_sel_d1, 0), 1)
 FROM pivot
 UNION ALL SELECT '3a. NonPayG selected (%)',
-    100, 100, 100, 100, 100, 100, 100, 100, 100
+    100, 100, 100, 100, 100, 100, 100, 100
 FROM pivot
 UNION ALL SELECT '3b. NonPayG Payment Done %',
-    ROUND(np_pay_wtd * 100.0 / NULLIF(np_sel_wtd, 0), 1),
-    ROUND(np_pay_wtd1 * 100.0 / NULLIF(np_sel_wtd1, 0), 1),
-    ROUND(np_pay_d1 * 100.0 / NULLIF(np_sel_d1, 0), 1),
-    ROUND(np_pay_d2 * 100.0 / NULLIF(np_sel_d2, 0), 1),
-    ROUND(np_pay_d3 * 100.0 / NULLIF(np_sel_d3, 0), 1),
-    ROUND(np_pay_d4 * 100.0 / NULLIF(np_sel_d4, 0), 1),
-    ROUND(np_pay_d5 * 100.0 / NULLIF(np_sel_d5, 0), 1),
+    ROUND(np_pay_total * 100.0 / NULLIF(np_sel_total, 0), 1),
+    ROUND(np_pay_d7 * 100.0 / NULLIF(np_sel_d7, 0), 1),
     ROUND(np_pay_d6 * 100.0 / NULLIF(np_sel_d6, 0), 1),
-    ROUND(np_pay_d7 * 100.0 / NULLIF(np_sel_d7, 0), 1)
+    ROUND(np_pay_d5 * 100.0 / NULLIF(np_sel_d5, 0), 1),
+    ROUND(np_pay_d4 * 100.0 / NULLIF(np_sel_d4, 0), 1),
+    ROUND(np_pay_d3 * 100.0 / NULLIF(np_sel_d3, 0), 1),
+    ROUND(np_pay_d2 * 100.0 / NULLIF(np_sel_d2, 0), 1),
+    ROUND(np_pay_d1 * 100.0 / NULLIF(np_sel_d1, 0), 1)
 FROM pivot
 """
 
@@ -409,10 +400,21 @@ edu_funnel_cols = [c['name'] for c in edu_data['data']['cols']]
 print(f"Education Funnel: fetched {len(edu_funnel_rows)} rows, columns: {edu_funnel_cols}")
 
 # Build education funnel HTML table from query results
+# Map column names to display names with actual dates
+ist_today = (datetime.utcnow() + timedelta(hours=5, minutes=30)).date()
+col_display = {
+    'METRIC': 'Metric',
+    'TOTAL': 'Total',
+}
+for i in range(1, 8):
+    d = ist_today - timedelta(days=i)
+    col_display[f'D{i}'] = d.strftime('%b %d')
+
 funnel_header_html = '<tr>'
 for col_name in edu_funnel_cols:
     align = 'text-align:left;min-width:220px;' if col_name.lower() == 'metric' else ''
-    funnel_header_html += f'<th style="{align}">{col_name}</th>'
+    display_name = col_display.get(col_name.upper(), col_name)
+    funnel_header_html += f'<th style="{align}">{display_name}</th>'
 funnel_header_html += '</tr>'
 
 funnel_rows_html = ''
@@ -448,7 +450,7 @@ for row in edu_funnel_rows:
     funnel_rows_html += '</tr>\n'
 
 if len(edu_funnel_rows) == 0:
-    funnel_rows_html = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;">No funnel data available</td></tr>'
+    funnel_rows_html = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;">No funnel data available</td></tr>'
 
 # Parse into list of dicts (lowercase keys for consistency)
 records = []
