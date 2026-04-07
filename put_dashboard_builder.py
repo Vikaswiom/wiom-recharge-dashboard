@@ -44,7 +44,7 @@ trump_recharge AS (
     SELECT
         DATEADD(MINUTE, 330, OTP_ISSUED_TIME) AS recharge_time,
         DATEADD(MINUTE, 330, OTP_EXPIRY_TIME) AS recharge_expire_time,
-        idmaker(shard, 0, router_nas_id) AS nas_id,
+        ROUTER_NAS_ID AS nas_id,
         mobile
     FROM T_ROUTER_USER_MAPPING
     WHERE otp = 'DONE'
