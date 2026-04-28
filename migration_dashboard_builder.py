@@ -195,193 +195,199 @@ rows = data['data']['rows']
 cols = [c['name'] for c in data['data']['cols']]
 print(f"Fetched {len(rows)} rows, columns: {cols}")
 
-# ── Education Funnel Query (CleverTap events) ──
+# ── PayG Migration v2 Funnel Query (CleverTap events) ──
+# Anchor: migration_trial_success_page_loaded → defines cohort_dt
+# Window: 48h after FIRST plan-options page-load post education
+# Switchers: LAST selection before payment is the attributed track
 EDU_FUNNEL_QUERY = """
 WITH education AS (
     SELECT
         profile_identity AS mobile,
         MIN(TO_TIMESTAMP(timestamp)) AS education_ts,
-        DATE(TO_TIMESTAMP(timestamp)) AS dt
+        DATE(MIN(TO_TIMESTAMP(timestamp))) AS cohort_dt
     FROM prod_db.public.ct_customer_payg_migration_events_mv
-    WHERE event_name = 'migration_50mbps_education_complete'
-    GROUP BY profile_identity, DATE(TO_TIMESTAMP(timestamp))
+    WHERE event_name = 'migration_trial_success_page_loaded'
+    GROUP BY profile_identity
+),
+plan_options AS (
+    SELECT profile_identity AS mobile, TO_TIMESTAMP(timestamp) AS plan_ts
+    FROM prod_db.public.ct_customer_payg_migration_events_mv
+    WHERE event_name = 'migration_50mbps_planoptions_pageloaded'
+),
+plan_options_after_edu AS (
+    SELECT * FROM (
+        SELECT e.mobile, e.cohort_dt, po.plan_ts,
+               ROW_NUMBER() OVER (PARTITION BY e.mobile ORDER BY po.plan_ts) AS rn
+        FROM education e
+        JOIN plan_options po ON e.mobile = po.mobile AND po.plan_ts >= e.education_ts
+    ) WHERE rn = 1
 ),
 all_selections AS (
-    SELECT
-        profile_identity AS mobile,
-        TO_TIMESTAMP(timestamp) AS ts,
-        event_name
+    SELECT profile_identity AS mobile, TO_TIMESTAMP(timestamp) AS ts, event_name
     FROM prod_db.public.ct_customer_payg_migration_events_mv
-    WHERE event_name IN ('migration_50mbps_PayG_selected', 'migration_50mbps_NonPayG_selected')
+    WHERE event_name IN ('migration_50mbps_PayG_selected','migration_50mbps_NonPayG_selected')
 ),
 payments AS (
-    SELECT
-        profile_identity AS mobile,
-        TO_TIMESTAMP(timestamp) AS ts
+    SELECT profile_identity AS mobile, TO_TIMESTAMP(timestamp) AS ts
     FROM prod_db.public.ct_customer_payg_payment_events_mv
     WHERE event_name = 'payment_success_page_loaded'
 ),
 payg_selection AS (
-    SELECT DISTINCT e.mobile, e.dt
-    FROM education e
-    JOIN all_selections s
-        ON e.mobile = s.mobile
-        AND s.event_name = 'migration_50mbps_PayG_selected'
-        AND s.ts BETWEEN e.education_ts AND e.education_ts + INTERVAL '48 hour'
+    SELECT DISTINCT po.mobile, po.cohort_dt
+    FROM plan_options_after_edu po JOIN all_selections s
+      ON po.mobile = s.mobile AND s.event_name = 'migration_50mbps_PayG_selected'
+     AND s.ts BETWEEN po.plan_ts AND po.plan_ts + INTERVAL '48 hour'
 ),
 nonpayg_selection AS (
-    SELECT DISTINCT e.mobile, e.dt
-    FROM education e
-    JOIN all_selections s
-        ON e.mobile = s.mobile
-        AND s.event_name = 'migration_50mbps_NonPayG_selected'
-        AND s.ts BETWEEN e.education_ts AND e.education_ts + INTERVAL '48 hour'
+    SELECT DISTINCT po.mobile, po.cohort_dt
+    FROM plan_options_after_edu po JOIN all_selections s
+      ON po.mobile = s.mobile AND s.event_name = 'migration_50mbps_NonPayG_selected'
+     AND s.ts BETWEEN po.plan_ts AND po.plan_ts + INTERVAL '48 hour'
 ),
 last_selection_before_payment AS (
     SELECT * FROM (
-        SELECT
-            e.mobile,
-            e.dt,
-            s.event_name,
-            ROW_NUMBER() OVER (
-                PARTITION BY e.mobile, p.ts
-                ORDER BY s.ts DESC
-            ) AS rn
-        FROM education e
-        JOIN payments p
-            ON e.mobile = p.mobile
-            AND p.ts BETWEEN e.education_ts AND e.education_ts + INTERVAL '48 hour'
-        JOIN all_selections s
-            ON e.mobile = s.mobile
-            AND s.ts BETWEEN e.education_ts AND p.ts
+        SELECT po.mobile, po.cohort_dt, s.event_name,
+               ROW_NUMBER() OVER (PARTITION BY po.mobile ORDER BY s.ts DESC) AS rn
+        FROM plan_options_after_edu po
+        JOIN payments p ON po.mobile = p.mobile AND p.ts BETWEEN po.plan_ts AND po.plan_ts + INTERVAL '48 hour'
+        JOIN all_selections s ON po.mobile = s.mobile AND s.ts BETWEEN po.plan_ts AND p.ts
     ) WHERE rn = 1
 ),
 payg_paid AS (
-    SELECT DISTINCT mobile, dt
-    FROM last_selection_before_payment
+    SELECT mobile, cohort_dt FROM last_selection_before_payment
     WHERE event_name = 'migration_50mbps_PayG_selected'
 ),
 nonpayg_paid AS (
-    SELECT DISTINCT mobile, dt
-    FROM last_selection_before_payment
+    SELECT mobile, cohort_dt FROM last_selection_before_payment
     WHERE event_name = 'migration_50mbps_NonPayG_selected'
 ),
-base AS (
+agg AS (
     SELECT
-        COUNT(DISTINCT mobile) AS edu_total,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS edu_d7,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS edu_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS edu_d5,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS edu_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS edu_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS edu_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS edu_d1
-    FROM education
-),
-payg_sel_agg AS (
-    SELECT
-        COUNT(DISTINCT mobile) AS payg_sel_total,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS payg_sel_d7,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS payg_sel_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS payg_sel_d5,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS payg_sel_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS payg_sel_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS payg_sel_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS payg_sel_d1
-    FROM payg_selection
-),
-nonpayg_sel_agg AS (
-    SELECT
-        COUNT(DISTINCT mobile) AS np_sel_total,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS np_sel_d7,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS np_sel_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS np_sel_d5,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS np_sel_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS np_sel_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS np_sel_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS np_sel_d1
-    FROM nonpayg_selection
-),
-payg_pay_agg AS (
-    SELECT
-        COUNT(DISTINCT mobile) AS payg_pay_total,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS payg_pay_d7,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS payg_pay_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS payg_pay_d5,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS payg_pay_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS payg_pay_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS payg_pay_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS payg_pay_d1
-    FROM payg_paid
-),
-nonpayg_pay_agg AS (
-    SELECT
-        COUNT(DISTINCT mobile) AS np_pay_total,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '7 day' THEN mobile END) AS np_pay_d7,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '6 day' THEN mobile END) AS np_pay_d6,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '5 day' THEN mobile END) AS np_pay_d5,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '4 day' THEN mobile END) AS np_pay_d4,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '3 day' THEN mobile END) AS np_pay_d3,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '2 day' THEN mobile END) AS np_pay_d2,
-        COUNT(DISTINCT CASE WHEN dt = CURRENT_DATE - INTERVAL '1 day' THEN mobile END) AS np_pay_d1
-    FROM nonpayg_paid
+        e.cohort_dt,
+        COUNT(DISTINCT e.mobile)  AS edu,
+        COUNT(DISTINCT po.mobile) AS po,
+        COUNT(DISTINCT ps.mobile) AS payg_sel,
+        COUNT(DISTINCT ns.mobile) AS nonpayg_sel,
+        COUNT(DISTINCT pp.mobile) AS payg_pay,
+        COUNT(DISTINCT np.mobile) AS nonpayg_pay
+    FROM education e
+    LEFT JOIN plan_options_after_edu po ON e.mobile = po.mobile
+    LEFT JOIN payg_selection ps ON e.mobile = ps.mobile
+    LEFT JOIN nonpayg_selection ns ON e.mobile = ns.mobile
+    LEFT JOIN payg_paid pp ON e.mobile = pp.mobile
+    LEFT JOIN nonpayg_paid np ON e.mobile = np.mobile
+    GROUP BY e.cohort_dt
 ),
 pivot AS (
-    SELECT * FROM base, payg_sel_agg, nonpayg_sel_agg, payg_pay_agg, nonpayg_pay_agg
+    SELECT
+    SUM(edu) AS td, SUM(po) AS po_td,
+    SUM(payg_sel) AS payg_sel_td, SUM(nonpayg_sel) AS np_sel_td,
+    SUM(payg_pay) AS payg_pay_td, SUM(nonpayg_pay) AS np_pay_td,
+
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE) THEN edu END) AS wtd,
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE)-INTERVAL '7 day'
+              AND cohort_dt < DATE_TRUNC('week', CURRENT_DATE) THEN edu END) AS wtd1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-1 THEN edu END) AS d1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-2 THEN edu END) AS d2,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-3 THEN edu END) AS d3,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-4 THEN edu END) AS d4,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-5 THEN edu END) AS d5,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-6 THEN edu END) AS d6,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-7 THEN edu END) AS d7,
+
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE) THEN po END) AS po_wtd,
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE)-INTERVAL '7 day'
+              AND cohort_dt < DATE_TRUNC('week', CURRENT_DATE) THEN po END) AS po_wtd1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-1 THEN po END) AS po_d1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-2 THEN po END) AS po_d2,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-3 THEN po END) AS po_d3,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-4 THEN po END) AS po_d4,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-5 THEN po END) AS po_d5,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-6 THEN po END) AS po_d6,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-7 THEN po END) AS po_d7,
+
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE) THEN payg_sel END) AS payg_sel_wtd,
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE)-INTERVAL '7 day'
+              AND cohort_dt < DATE_TRUNC('week', CURRENT_DATE) THEN payg_sel END) AS payg_sel_wtd1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-1 THEN payg_sel END) AS payg_sel_d1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-2 THEN payg_sel END) AS payg_sel_d2,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-3 THEN payg_sel END) AS payg_sel_d3,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-4 THEN payg_sel END) AS payg_sel_d4,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-5 THEN payg_sel END) AS payg_sel_d5,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-6 THEN payg_sel END) AS payg_sel_d6,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-7 THEN payg_sel END) AS payg_sel_d7,
+
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE) THEN nonpayg_sel END) AS np_sel_wtd,
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE)-INTERVAL '7 day'
+              AND cohort_dt < DATE_TRUNC('week', CURRENT_DATE) THEN nonpayg_sel END) AS np_sel_wtd1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-1 THEN nonpayg_sel END) AS np_sel_d1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-2 THEN nonpayg_sel END) AS np_sel_d2,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-3 THEN nonpayg_sel END) AS np_sel_d3,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-4 THEN nonpayg_sel END) AS np_sel_d4,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-5 THEN nonpayg_sel END) AS np_sel_d5,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-6 THEN nonpayg_sel END) AS np_sel_d6,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-7 THEN nonpayg_sel END) AS np_sel_d7,
+
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE) THEN payg_pay END) AS payg_pay_wtd,
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE)-INTERVAL '7 day'
+              AND cohort_dt < DATE_TRUNC('week', CURRENT_DATE) THEN payg_pay END) AS payg_pay_wtd1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-1 THEN payg_pay END) AS payg_pay_d1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-2 THEN payg_pay END) AS payg_pay_d2,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-3 THEN payg_pay END) AS payg_pay_d3,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-4 THEN payg_pay END) AS payg_pay_d4,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-5 THEN payg_pay END) AS payg_pay_d5,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-6 THEN payg_pay END) AS payg_pay_d6,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-7 THEN payg_pay END) AS payg_pay_d7,
+
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE) THEN nonpayg_pay END) AS np_pay_wtd,
+    SUM(CASE WHEN cohort_dt >= DATE_TRUNC('week', CURRENT_DATE)-INTERVAL '7 day'
+              AND cohort_dt < DATE_TRUNC('week', CURRENT_DATE) THEN nonpayg_pay END) AS np_pay_wtd1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-1 THEN nonpayg_pay END) AS np_pay_d1,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-2 THEN nonpayg_pay END) AS np_pay_d2,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-3 THEN nonpayg_pay END) AS np_pay_d3,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-4 THEN nonpayg_pay END) AS np_pay_d4,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-5 THEN nonpayg_pay END) AS np_pay_d5,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-6 THEN nonpayg_pay END) AS np_pay_d6,
+    SUM(CASE WHEN cohort_dt = CURRENT_DATE-7 THEN nonpayg_pay END) AS np_pay_d7
+    FROM agg
 )
-SELECT '0. Education complete' AS metric,
-    edu_total AS "TOTAL",
-    edu_d7 AS "D7", edu_d6 AS "D6", edu_d5 AS "D5",
-    edu_d4 AS "D4", edu_d3 AS "D3", edu_d2 AS "D2", edu_d1 AS "D1"
+SELECT '0. Free_Trial_Success' AS metric,
+    td AS "TD", wtd AS "WTD", wtd1 AS "WTD1",
+    d1 AS "D1", d2 AS "D2", d3 AS "D3", d4 AS "D4", d5 AS "D5", d6 AS "D6", d7 AS "D7"
 FROM pivot
-UNION ALL SELECT '1a. Education complete (%)',
-    100, 100, 100, 100, 100, 100, 100, 100
+UNION ALL SELECT '1a. Free_Trial_Success(%)',100,100,100,100,100,100,100,100,100,100 FROM pivot
+UNION ALL SELECT '1b. Plan Options Page %',
+    ROUND(po_td*100.0/NULLIF(td,0),1), ROUND(po_wtd*100.0/NULLIF(wtd,0),1), ROUND(po_wtd1*100.0/NULLIF(wtd1,0),1),
+    ROUND(po_d1*100.0/NULLIF(d1,0),1), ROUND(po_d2*100.0/NULLIF(d2,0),1), ROUND(po_d3*100.0/NULLIF(d3,0),1),
+    ROUND(po_d4*100.0/NULLIF(d4,0),1), ROUND(po_d5*100.0/NULLIF(d5,0),1), ROUND(po_d6*100.0/NULLIF(d6,0),1),
+    ROUND(po_d7*100.0/NULLIF(d7,0),1)
 FROM pivot
-UNION ALL SELECT '1b. PayG selected %',
-    ROUND(payg_sel_total * 100.0 / NULLIF(edu_total, 0), 1),
-    ROUND(payg_sel_d7 * 100.0 / NULLIF(edu_d7, 0), 1),
-    ROUND(payg_sel_d6 * 100.0 / NULLIF(edu_d6, 0), 1),
-    ROUND(payg_sel_d5 * 100.0 / NULLIF(edu_d5, 0), 1),
-    ROUND(payg_sel_d4 * 100.0 / NULLIF(edu_d4, 0), 1),
-    ROUND(payg_sel_d3 * 100.0 / NULLIF(edu_d3, 0), 1),
-    ROUND(payg_sel_d2 * 100.0 / NULLIF(edu_d2, 0), 1),
-    ROUND(payg_sel_d1 * 100.0 / NULLIF(edu_d1, 0), 1)
+UNION ALL SELECT '2a. Plan Options Page (%)',100,100,100,100,100,100,100,100,100,100 FROM pivot
+UNION ALL SELECT '2b. PayG selected %',
+    ROUND(payg_sel_td*100.0/NULLIF(po_td,0),1), ROUND(payg_sel_wtd*100.0/NULLIF(po_wtd,0),1), ROUND(payg_sel_wtd1*100.0/NULLIF(po_wtd1,0),1),
+    ROUND(payg_sel_d1*100.0/NULLIF(po_d1,0),1), ROUND(payg_sel_d2*100.0/NULLIF(po_d2,0),1), ROUND(payg_sel_d3*100.0/NULLIF(po_d3,0),1),
+    ROUND(payg_sel_d4*100.0/NULLIF(po_d4,0),1), ROUND(payg_sel_d5*100.0/NULLIF(po_d5,0),1), ROUND(payg_sel_d6*100.0/NULLIF(po_d6,0),1),
+    ROUND(payg_sel_d7*100.0/NULLIF(po_d7,0),1)
 FROM pivot
-UNION ALL SELECT '1c. NonPayG selected %',
-    ROUND(np_sel_total * 100.0 / NULLIF(edu_total, 0), 1),
-    ROUND(np_sel_d7 * 100.0 / NULLIF(edu_d7, 0), 1),
-    ROUND(np_sel_d6 * 100.0 / NULLIF(edu_d6, 0), 1),
-    ROUND(np_sel_d5 * 100.0 / NULLIF(edu_d5, 0), 1),
-    ROUND(np_sel_d4 * 100.0 / NULLIF(edu_d4, 0), 1),
-    ROUND(np_sel_d3 * 100.0 / NULLIF(edu_d3, 0), 1),
-    ROUND(np_sel_d2 * 100.0 / NULLIF(edu_d2, 0), 1),
-    ROUND(np_sel_d1 * 100.0 / NULLIF(edu_d1, 0), 1)
+UNION ALL SELECT '2c. NonPayG selected %',
+    ROUND(np_sel_td*100.0/NULLIF(po_td,0),1), ROUND(np_sel_wtd*100.0/NULLIF(po_wtd,0),1), ROUND(np_sel_wtd1*100.0/NULLIF(po_wtd1,0),1),
+    ROUND(np_sel_d1*100.0/NULLIF(po_d1,0),1), ROUND(np_sel_d2*100.0/NULLIF(po_d2,0),1), ROUND(np_sel_d3*100.0/NULLIF(po_d3,0),1),
+    ROUND(np_sel_d4*100.0/NULLIF(po_d4,0),1), ROUND(np_sel_d5*100.0/NULLIF(po_d5,0),1), ROUND(np_sel_d6*100.0/NULLIF(po_d6,0),1),
+    ROUND(np_sel_d7*100.0/NULLIF(po_d7,0),1)
 FROM pivot
-UNION ALL SELECT '2a. PayG selected (%)',
-    100, 100, 100, 100, 100, 100, 100, 100
+UNION ALL SELECT '3a. PayG selected (%)',100,100,100,100,100,100,100,100,100,100 FROM pivot
+UNION ALL SELECT '3b. PayG Payment Done %',
+    ROUND(payg_pay_td*100.0/NULLIF(payg_sel_td,0),1), ROUND(payg_pay_wtd*100.0/NULLIF(payg_sel_wtd,0),1), ROUND(payg_pay_wtd1*100.0/NULLIF(payg_sel_wtd1,0),1),
+    ROUND(payg_pay_d1*100.0/NULLIF(payg_sel_d1,0),1), ROUND(payg_pay_d2*100.0/NULLIF(payg_sel_d2,0),1), ROUND(payg_pay_d3*100.0/NULLIF(payg_sel_d3,0),1),
+    ROUND(payg_pay_d4*100.0/NULLIF(payg_sel_d4,0),1), ROUND(payg_pay_d5*100.0/NULLIF(payg_sel_d5,0),1), ROUND(payg_pay_d6*100.0/NULLIF(payg_sel_d6,0),1),
+    ROUND(payg_pay_d7*100.0/NULLIF(payg_sel_d7,0),1)
 FROM pivot
-UNION ALL SELECT '2b. PayG Payment Done %',
-    ROUND(payg_pay_total * 100.0 / NULLIF(payg_sel_total, 0), 1),
-    ROUND(payg_pay_d7 * 100.0 / NULLIF(payg_sel_d7, 0), 1),
-    ROUND(payg_pay_d6 * 100.0 / NULLIF(payg_sel_d6, 0), 1),
-    ROUND(payg_pay_d5 * 100.0 / NULLIF(payg_sel_d5, 0), 1),
-    ROUND(payg_pay_d4 * 100.0 / NULLIF(payg_sel_d4, 0), 1),
-    ROUND(payg_pay_d3 * 100.0 / NULLIF(payg_sel_d3, 0), 1),
-    ROUND(payg_pay_d2 * 100.0 / NULLIF(payg_sel_d2, 0), 1),
-    ROUND(payg_pay_d1 * 100.0 / NULLIF(payg_sel_d1, 0), 1)
-FROM pivot
-UNION ALL SELECT '3a. NonPayG selected (%)',
-    100, 100, 100, 100, 100, 100, 100, 100
-FROM pivot
-UNION ALL SELECT '3b. NonPayG Payment Done %',
-    ROUND(np_pay_total * 100.0 / NULLIF(np_sel_total, 0), 1),
-    ROUND(np_pay_d7 * 100.0 / NULLIF(np_sel_d7, 0), 1),
-    ROUND(np_pay_d6 * 100.0 / NULLIF(np_sel_d6, 0), 1),
-    ROUND(np_pay_d5 * 100.0 / NULLIF(np_sel_d5, 0), 1),
-    ROUND(np_pay_d4 * 100.0 / NULLIF(np_sel_d4, 0), 1),
-    ROUND(np_pay_d3 * 100.0 / NULLIF(np_sel_d3, 0), 1),
-    ROUND(np_pay_d2 * 100.0 / NULLIF(np_sel_d2, 0), 1),
-    ROUND(np_pay_d1 * 100.0 / NULLIF(np_sel_d1, 0), 1)
+UNION ALL SELECT '4a. NonPayG selected (%)',100,100,100,100,100,100,100,100,100,100 FROM pivot
+UNION ALL SELECT '4b. NonPayG Payment Done %',
+    ROUND(np_pay_td*100.0/NULLIF(np_sel_td,0),1), ROUND(np_pay_wtd*100.0/NULLIF(np_sel_wtd,0),1), ROUND(np_pay_wtd1*100.0/NULLIF(np_sel_wtd1,0),1),
+    ROUND(np_pay_d1*100.0/NULLIF(np_sel_d1,0),1), ROUND(np_pay_d2*100.0/NULLIF(np_sel_d2,0),1), ROUND(np_pay_d3*100.0/NULLIF(np_sel_d3,0),1),
+    ROUND(np_pay_d4*100.0/NULLIF(np_sel_d4,0),1), ROUND(np_pay_d5*100.0/NULLIF(np_sel_d5,0),1), ROUND(np_pay_d6*100.0/NULLIF(np_sel_d6,0),1),
+    ROUND(np_pay_d7*100.0/NULLIF(np_sel_d7,0),1)
 FROM pivot
 """
 
@@ -399,45 +405,65 @@ edu_funnel_rows = edu_data['data']['rows']
 edu_funnel_cols = [c['name'] for c in edu_data['data']['cols']]
 print(f"Education Funnel: fetched {len(edu_funnel_rows)} rows, columns: {edu_funnel_cols}")
 
-# Build education funnel HTML table from query results
-# Map column names to display names with actual dates
+# Build PayG Migration v2 funnel HTML table from query results
+# Columns: METRIC | TD | WTD | WTD1 | D1..D7 (D1 = yesterday, D7 = 7 days ago)
 ist_today = (datetime.utcnow() + timedelta(hours=5, minutes=30)).date()
+# Week start = Monday (matches Snowflake DATE_TRUNC('week') default)
+days_since_mon = ist_today.weekday()  # Monday=0
+this_week_start = ist_today - timedelta(days=days_since_mon)
+last_week_start = this_week_start - timedelta(days=7)
+last_week_end = this_week_start - timedelta(days=1)
+
+def _fmt(d):
+    return d.strftime('%b %d')
+
 col_display = {
-    'METRIC': 'Metric',
-    'TOTAL': 'Total',
+    'METRIC':  'Metric',
+    'TD':      'TD<br><span style="color:#94a3b8;font-weight:400;font-size:0.7rem;">All-time</span>',
+    'WTD':     f'WTD<br><span style="color:#94a3b8;font-weight:400;font-size:0.7rem;">{_fmt(this_week_start)}–{_fmt(ist_today)}</span>',
+    'WTD1':    f'WTD-1<br><span style="color:#94a3b8;font-weight:400;font-size:0.7rem;">{_fmt(last_week_start)}–{_fmt(last_week_end)}</span>',
 }
 for i in range(1, 8):
     d = ist_today - timedelta(days=i)
-    col_display[f'D{i}'] = d.strftime('%b %d')
+    col_display[f'D{i}'] = f'D-{i}<br><span style="color:#94a3b8;font-weight:400;font-size:0.7rem;">{_fmt(d)}</span>'
 
 funnel_header_html = '<tr>'
 for col_name in edu_funnel_cols:
-    align = 'text-align:left;min-width:220px;' if col_name.lower() == 'metric' else ''
-    display_name = col_display.get(col_name.upper(), col_name)
+    key = col_name.upper()
+    align = 'text-align:left;min-width:220px;' if key == 'METRIC' else 'min-width:80px;'
+    display_name = col_display.get(key, col_name)
     funnel_header_html += f'<th style="{align}">{display_name}</th>'
 funnel_header_html += '</tr>'
+
+# Row styling rules for the 11-row v2 funnel:
+#   0., 1a.  → header (white, bold)         — Free trial success
+#   1b.      → grey indent                   — Plan Options %
+#   2a.      → grey bold                     — Plan Options 100% reference
+#   2b.      → cyan indent                   — PayG selected %
+#   2c.      → orange indent                 — NonPayG selected %
+#   3a., 3b. → cyan bold + cyan indent       — PayG payment funnel
+#   4a., 4b. → orange bold + orange indent   — NonPayG payment funnel
+def _row_style(metric):
+    if metric.startswith('0.') or metric.startswith('1a.'):
+        return 'text-align:left;font-weight:700;color:#f1f5f9;'
+    if metric.startswith('2a.'):
+        return 'text-align:left;font-weight:600;color:#94a3b8;'
+    if metric.startswith('3a.') or metric.startswith('3b.'):
+        base = 'text-align:left;color:#22d3ee;'
+        return base + ('font-weight:600;' if metric.startswith('3a.') else 'padding-left:16px;')
+    if metric.startswith('4a.') or metric.startswith('4b.'):
+        base = 'text-align:left;color:#fb923c;'
+        return base + ('font-weight:600;' if metric.startswith('4a.') else 'padding-left:16px;')
+    if metric.startswith('2b.'):
+        return 'text-align:left;color:#22d3ee;padding-left:16px;'
+    if metric.startswith('2c.'):
+        return 'text-align:left;color:#fb923c;padding-left:16px;'
+    return 'text-align:left;color:#94a3b8;padding-left:16px;'
 
 funnel_rows_html = ''
 for row in edu_funnel_rows:
     metric = str(row[0]) if row[0] is not None else ''
-    # Determine row style based on metric name
-    if metric.startswith('0.') or metric.startswith('1a.'):
-        metric_style = 'text-align:left;font-weight:700;color:#f1f5f9;'
-    elif metric.startswith('2a.') or metric.startswith('3a.'):
-        # Base 100% rows (2a, 3a)
-        metric_style = 'text-align:left;font-weight:600;'
-        if 'NonPayG' in metric:
-            metric_style += 'color:#fb923c;'
-        elif 'PayG' in metric:
-            metric_style += 'color:#22d3ee;'
-    elif 'NonPayG' in metric:
-        metric_style = 'text-align:left;color:#fb923c;padding-left:16px;'
-    elif 'PayG' in metric:
-        metric_style = 'text-align:left;color:#22d3ee;padding-left:16px;'
-    else:
-        metric_style = 'text-align:left;color:#94a3b8;padding-left:16px;'
-
-    funnel_rows_html += f'<tr><td style="{metric_style}">{metric}</td>'
+    funnel_rows_html += f'<tr><td style="{_row_style(metric)}">{metric}</td>'
     for val in row[1:]:
         if val is None:
             funnel_rows_html += '<td>-</td>'
@@ -450,7 +476,7 @@ for row in edu_funnel_rows:
     funnel_rows_html += '</tr>\n'
 
 if len(edu_funnel_rows) == 0:
-    funnel_rows_html = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;">No funnel data available</td></tr>'
+    funnel_rows_html = f'<tr><td colspan="{len(edu_funnel_cols)}" style="text-align:center;color:#94a3b8;">No funnel data available</td></tr>'
 
 # Parse into list of dicts (lowercase keys for consistency)
 records = []
@@ -761,9 +787,14 @@ html = f"""<!DOCTYPE html>
   </div>
 </div>
 
-<!-- ── Education Funnel (CleverTap Events) ── -->
-<h2 class="section-title">Education &rarr; Plan Selection &rarr; Payment Funnel (50 Mbps)</h2>
+<!-- ── PayG Migration v2 Funnel (CleverTap Events) ── -->
+<h2 class="section-title">PayG Migration v2 Funnel: Free Trial &rarr; Plan Options &rarr; Selection &rarr; Payment (50 Mbps)</h2>
 <div class="table-box">
+  <p style="color:#94a3b8;font-size:0.78rem;margin-bottom:10px;line-height:1.55;">
+    Cohort = first <code style="background:#0f172a;padding:1px 5px;border-radius:3px;color:#22d3ee;">migration_trial_success_page_loaded</code>;
+    48h funnel window starts from the FIRST <code style="background:#0f172a;padding:1px 5px;border-radius:3px;color:#22d3ee;">migration_50mbps_planoptions_pageloaded</code>.
+    Switchers (users who tap both PayG &amp; NonPayG) are attributed to the LAST selection before payment.
+  </p>
   <div style="overflow-x:auto;">
   <table style="font-size:0.78rem;">
     <thead>{funnel_header_html}</thead>
