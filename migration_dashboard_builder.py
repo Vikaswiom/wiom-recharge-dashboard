@@ -385,12 +385,48 @@ UNION ALL SELECT '3b. PayG Payment Done %',
     ROUND(payg_pay_d4*100.0/NULLIF(payg_sel_d4,0),1), ROUND(payg_pay_d5*100.0/NULLIF(payg_sel_d5,0),1), ROUND(payg_pay_d6*100.0/NULLIF(payg_sel_d6,0),1),
     ROUND(payg_pay_d7*100.0/NULLIF(payg_sel_d7,0),1)
 FROM pivot
+UNION ALL SELECT '3c. PayG Not Paid (count)',
+    payg_sel_td - payg_pay_td, payg_sel_wtd - payg_pay_wtd, payg_sel_wtd1 - payg_pay_wtd1,
+    payg_sel_d1 - payg_pay_d1, payg_sel_d2 - payg_pay_d2, payg_sel_d3 - payg_pay_d3,
+    payg_sel_d4 - payg_pay_d4, payg_sel_d5 - payg_pay_d5, payg_sel_d6 - payg_pay_d6,
+    payg_sel_d7 - payg_pay_d7
+FROM pivot
+UNION ALL SELECT '3d. PayG Not Paid %',
+    ROUND((payg_sel_td - payg_pay_td)*100.0/NULLIF(payg_sel_td,0),1),
+    ROUND((payg_sel_wtd - payg_pay_wtd)*100.0/NULLIF(payg_sel_wtd,0),1),
+    ROUND((payg_sel_wtd1 - payg_pay_wtd1)*100.0/NULLIF(payg_sel_wtd1,0),1),
+    ROUND((payg_sel_d1 - payg_pay_d1)*100.0/NULLIF(payg_sel_d1,0),1),
+    ROUND((payg_sel_d2 - payg_pay_d2)*100.0/NULLIF(payg_sel_d2,0),1),
+    ROUND((payg_sel_d3 - payg_pay_d3)*100.0/NULLIF(payg_sel_d3,0),1),
+    ROUND((payg_sel_d4 - payg_pay_d4)*100.0/NULLIF(payg_sel_d4,0),1),
+    ROUND((payg_sel_d5 - payg_pay_d5)*100.0/NULLIF(payg_sel_d5,0),1),
+    ROUND((payg_sel_d6 - payg_pay_d6)*100.0/NULLIF(payg_sel_d6,0),1),
+    ROUND((payg_sel_d7 - payg_pay_d7)*100.0/NULLIF(payg_sel_d7,0),1)
+FROM pivot
 UNION ALL SELECT '4a. NonPayG selected (%)',100,100,100,100,100,100,100,100,100,100 FROM pivot
 UNION ALL SELECT '4b. NonPayG Payment Done %',
     ROUND(np_pay_td*100.0/NULLIF(np_sel_td,0),1), ROUND(np_pay_wtd*100.0/NULLIF(np_sel_wtd,0),1), ROUND(np_pay_wtd1*100.0/NULLIF(np_sel_wtd1,0),1),
     ROUND(np_pay_d1*100.0/NULLIF(np_sel_d1,0),1), ROUND(np_pay_d2*100.0/NULLIF(np_sel_d2,0),1), ROUND(np_pay_d3*100.0/NULLIF(np_sel_d3,0),1),
     ROUND(np_pay_d4*100.0/NULLIF(np_sel_d4,0),1), ROUND(np_pay_d5*100.0/NULLIF(np_sel_d5,0),1), ROUND(np_pay_d6*100.0/NULLIF(np_sel_d6,0),1),
     ROUND(np_pay_d7*100.0/NULLIF(np_sel_d7,0),1)
+FROM pivot
+UNION ALL SELECT '4c. NonPayG Not Paid (count)',
+    np_sel_td - np_pay_td, np_sel_wtd - np_pay_wtd, np_sel_wtd1 - np_pay_wtd1,
+    np_sel_d1 - np_pay_d1, np_sel_d2 - np_pay_d2, np_sel_d3 - np_pay_d3,
+    np_sel_d4 - np_pay_d4, np_sel_d5 - np_pay_d5, np_sel_d6 - np_pay_d6,
+    np_sel_d7 - np_pay_d7
+FROM pivot
+UNION ALL SELECT '4d. NonPayG Not Paid %',
+    ROUND((np_sel_td - np_pay_td)*100.0/NULLIF(np_sel_td,0),1),
+    ROUND((np_sel_wtd - np_pay_wtd)*100.0/NULLIF(np_sel_wtd,0),1),
+    ROUND((np_sel_wtd1 - np_pay_wtd1)*100.0/NULLIF(np_sel_wtd1,0),1),
+    ROUND((np_sel_d1 - np_pay_d1)*100.0/NULLIF(np_sel_d1,0),1),
+    ROUND((np_sel_d2 - np_pay_d2)*100.0/NULLIF(np_sel_d2,0),1),
+    ROUND((np_sel_d3 - np_pay_d3)*100.0/NULLIF(np_sel_d3,0),1),
+    ROUND((np_sel_d4 - np_pay_d4)*100.0/NULLIF(np_sel_d4,0),1),
+    ROUND((np_sel_d5 - np_pay_d5)*100.0/NULLIF(np_sel_d5,0),1),
+    ROUND((np_sel_d6 - np_pay_d6)*100.0/NULLIF(np_sel_d6,0),1),
+    ROUND((np_sel_d7 - np_pay_d7)*100.0/NULLIF(np_sel_d7,0),1)
 FROM pivot
 """
 
@@ -452,12 +488,19 @@ def _row_style(metric):
         return 'text-align:left;font-weight:700;color:#f1f5f9;'
     if metric.startswith('2a.'):
         return 'text-align:left;font-weight:600;color:#94a3b8;'
-    if metric.startswith('3a.') or metric.startswith('3b.'):
-        base = 'text-align:left;color:#22d3ee;'
-        return base + ('font-weight:600;' if metric.startswith('3a.') else 'padding-left:16px;')
-    if metric.startswith('4a.') or metric.startswith('4b.'):
-        base = 'text-align:left;color:#fb923c;'
-        return base + ('font-weight:600;' if metric.startswith('4a.') else 'padding-left:16px;')
+    if metric.startswith('3a.'):
+        return 'text-align:left;color:#22d3ee;font-weight:600;'
+    if metric.startswith('3b.'):
+        return 'text-align:left;color:#22d3ee;padding-left:16px;'
+    if metric.startswith('3c.') or metric.startswith('3d.'):
+        # Drop-off rows: dim red so they read as "leak"
+        return 'text-align:left;color:#f87171;padding-left:16px;font-style:italic;'
+    if metric.startswith('4a.'):
+        return 'text-align:left;color:#fb923c;font-weight:600;'
+    if metric.startswith('4b.'):
+        return 'text-align:left;color:#fb923c;padding-left:16px;'
+    if metric.startswith('4c.') or metric.startswith('4d.'):
+        return 'text-align:left;color:#f87171;padding-left:16px;font-style:italic;'
     if metric.startswith('2b.'):
         return 'text-align:left;color:#22d3ee;padding-left:16px;'
     if metric.startswith('2c.'):
