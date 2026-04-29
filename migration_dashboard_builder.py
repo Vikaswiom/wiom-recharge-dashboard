@@ -199,7 +199,9 @@ print(f"Fetched {len(rows)} rows, columns: {cols}")
 # Anchor: migration_trial_success_page_loaded → defines cohort_dt
 # Window: 48h after FIRST plan-options page-load post education
 # Switchers: LAST selection before payment is the attributed track
-EDU_FUNNEL_QUERY = """
+# Release filter: cohort_dt >= 2026-04-25 (drops Apr 23–24 pre-release noise)
+V2_RELEASE_DATE = '2026-04-25'
+EDU_FUNNEL_QUERY = f"""
 WITH education AS (
     SELECT
         profile_identity AS mobile,
@@ -208,6 +210,7 @@ WITH education AS (
     FROM prod_db.public.ct_customer_payg_migration_events_mv
     WHERE event_name = 'migration_trial_success_page_loaded'
     GROUP BY profile_identity
+    HAVING DATE(MIN(TO_TIMESTAMP(timestamp))) >= '{V2_RELEASE_DATE}'
 ),
 plan_options AS (
     SELECT profile_identity AS mobile, TO_TIMESTAMP(timestamp) AS plan_ts
@@ -417,9 +420,10 @@ last_week_end = this_week_start - timedelta(days=1)
 def _fmt(d):
     return d.strftime('%b %d')
 
+v2_release = datetime(2026, 4, 25).date()
 col_display = {
     'METRIC':  'Metric',
-    'TD':      'TD<br><span style="color:#94a3b8;font-weight:400;font-size:0.7rem;">All-time</span>',
+    'TD':      f'TD<br><span style="color:#94a3b8;font-weight:400;font-size:0.7rem;">{_fmt(v2_release)}–{_fmt(ist_today)}</span>',
     'WTD':     f'WTD<br><span style="color:#94a3b8;font-weight:400;font-size:0.7rem;">{_fmt(this_week_start)}–{_fmt(ist_today)}</span>',
     'WTD1':    f'WTD-1<br><span style="color:#94a3b8;font-weight:400;font-size:0.7rem;">{_fmt(last_week_start)}–{_fmt(last_week_end)}</span>',
 }
@@ -791,7 +795,8 @@ html = f"""<!DOCTYPE html>
 <h2 class="section-title">PayG Migration v2 Funnel: Free Trial &rarr; Plan Options &rarr; Selection &rarr; Payment (50 Mbps)</h2>
 <div class="table-box">
   <p style="color:#94a3b8;font-size:0.78rem;margin-bottom:10px;line-height:1.55;">
-    Cohort = first <code style="background:#0f172a;padding:1px 5px;border-radius:3px;color:#22d3ee;">migration_trial_success_page_loaded</code>;
+    <b style="color:#fbbf24;">Release: 25 Apr 2026</b> &mdash; cohort filtered to users whose first
+    <code style="background:#0f172a;padding:1px 5px;border-radius:3px;color:#22d3ee;">migration_trial_success_page_loaded</code> is on or after 25 Apr.
     48h funnel window starts from the FIRST <code style="background:#0f172a;padding:1px 5px;border-radius:3px;color:#22d3ee;">migration_50mbps_planoptions_pageloaded</code>.
     Switchers (users who tap both PayG &amp; NonPayG) are attributed to the LAST selection before payment.
   </p>
