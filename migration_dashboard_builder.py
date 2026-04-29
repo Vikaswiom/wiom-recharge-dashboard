@@ -526,12 +526,16 @@ if len(edu_funnel_rows) == 0:
     funnel_rows_html = f'<tr><td colspan="{len(edu_funnel_cols)}" style="text-align:center;color:#94a3b8;">No funnel data available</td></tr>'
 
 # Parse into list of dicts (lowercase keys for consistency)
-records = []
+records_all = []
 for r in rows:
     rec = {}
     for i, c in enumerate(cols):
         rec[c.lower()] = r[i]
-    records.append(rec)
+    records_all.append(rec)
+
+# ── Apply v2 release-date filter (cohort: customers due on/after 2026-04-25) ──
+RELEASE_DATE = '2026-04-25'
+records = [r for r in records_all if r['due_date'] and r['due_date'][:10] >= RELEASE_DATE]
 
 # Safe percentage helper
 def pct(part, whole):
@@ -544,6 +548,8 @@ total_recharged = sum(1 for r in records if r['has_recharged'] == 1)
 total_migrated = sum(1 for r in records if r['has_migrated'] == 1)
 total_non_migrated = total_due - total_migrated
 migration_rate = pct(total_migrated, total_due)
+recharge_rate = pct(total_recharged, total_due)
+print(f"[FILTER {RELEASE_DATE}+] Eligible={total_eligible}  Due={total_due}  Recharged={total_recharged} ({recharge_rate}%)  Migrated={total_migrated} ({migration_rate}%)  NonMigrated={total_non_migrated}")
 
 # ── 2. Speed tier breakdown ──
 def tier_kpis(speed):
@@ -757,7 +763,7 @@ html = f"""<!DOCTYPE html>
 <body>
 
 <h1>PAYG Migration Dashboard</h1>
-<p class="subtitle">nPayG &rarr; PayG migration tracking &mdash; Data as of {data_freshness} &mdash; Generated {generated_at}</p>
+<p class="subtitle">nPayG &rarr; PayG migration tracking &mdash; <span style="color:#fbbf24;font-weight:600;">Cohort: due on/after {RELEASE_DATE} (v2 release)</span> &mdash; Data as of {data_freshness} &mdash; Generated {generated_at}</p>
 
 <!-- ── Overall KPI Cards ── -->
 <div class="kpi-row">
